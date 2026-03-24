@@ -774,7 +774,7 @@ class DishPreparationViewSet(viewsets.ModelViewSet):
         return Response(status=status.HTTP_200_OK)
 
 class IngredientViewSet(viewsets.ModelViewSet):
-    queryset = Ingredient.objects.prefetch_related("stocks")
+    queryset = Ingredient.objects.prefetch_related("stocks").filter(deleted=False)
     serializer_class = IngredientSerializer
     renderer_classes = [JSONRenderer]
     permission_classes = (IsAuthenticated, DjangoModelPermissions)
@@ -1521,7 +1521,12 @@ class RecipeIngredientViewSet(viewsets.ModelViewSet):
         obj_form = RecipeIngredientForm(request.data)
         if obj_form.is_valid():
             parts = request.data['item_uid'].split('-')
-            get_recipe=RecipeIngredient.objects.filter(dish_id=request.data['dish'], recipes= request.data['recipes'], ingredient_id=int(parts[1])).last()
+            if parts[0] == 'ingredient':
+
+                get_recipe=RecipeIngredient.objects.filter(dish_id=request.data['dish'], recipes= request.data['recipes'], ingredient_id=int(parts[1])).last()
+            else:
+                get_recipe=RecipeIngredient.objects.filter(dish_id=request.data['dish'], recipes= request.data['recipes'], compose_ingredient_id=int(parts[1])).last()
+
             if get_recipe:
                 get_recipe.quantity=request.data['quantity']
                 get_recipe.save()
@@ -1530,10 +1535,17 @@ class RecipeIngredientViewSet(viewsets.ModelViewSet):
                 obj = obj_form.save()
                 obj.recipes_id = request.data['recipes']
                 obj.save()
+            
+            if parts[0] == 'ingredient':
+                get_ingredient = Ingredient.objects.filter(id=int(parts[1])).last()
+                price_per_unit = get_ingredient.price_per_unit
+            else:
+                price_per_unit = 0
+
             get_ingredient = Ingredient.objects.filter(id=int(parts[1])).last()
             get_recipes = Recipes.objects.filter(id=request.data['recipes']).last()
             get_recipes.dish_id = request.data['dish']
-            get_recipes.total_amount += float(request.data['quantity']) * float(get_ingredient.price_per_unit)
+            get_recipes.total_amount += float(request.data['quantity']) * float(price_per_unit)
             get_recipes.save()
             serializer = self.get_serializer(obj, many=False)
             return Response(data=serializer.data, status=status.HTTP_201_CREATED)
@@ -1628,8 +1640,7 @@ class RecipeIngredientViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         obj = self.get_object()
-        obj.deleted = True
-        obj.save()
+        obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=['get'], url_path='all')
@@ -1771,8 +1782,7 @@ class DetailsComposeIngredientViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         obj = self.get_object()
-        obj.deleted = True
-        obj.save()
+        obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=['get'], url_path='all')
@@ -1901,8 +1911,7 @@ class DetailsComposePreparationViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         obj = self.get_object()
-        obj.deleted = True
-        obj.save()
+        obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=['get'], url_path='all')
