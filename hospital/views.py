@@ -7182,6 +7182,7 @@ class InventoryViewSet(viewsets.ModelViewSet):
             # inventory.save()
             get_inventory = Inventory.objects.filter(hospital = self.request.user.hospital, user=self.request.user, id=request.data['inventory']).last()
             get_inventory.storage_depots_id = request.data['storage_depots']
+            get_inventory.reason_inventory = request.data['reason_inventory']
             get_inventory.save()
             get_details_inv = DetailsInventory.objects.filter(hospital = self.request.user.hospital, inventory_id=request.data[
                     'inventory']).filter(deleted=False)

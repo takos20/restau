@@ -719,7 +719,7 @@ class StockSerializer(DynamicFieldsModelSerializer):
     """
     Bifrost Supplies writable nested serializer
     """
-    ingredient = IngredientSerializer(many=False, fields=('id', 'code', 'name'))
+    ingredient = IngredientSerializer(many=False, fields=('id', 'code', 'name', 'price_per_unit'))
     storage_depots = Storage_depotsSerializer(many=False, fields=('id', 'name'))
     
 

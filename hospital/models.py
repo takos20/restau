@@ -1565,7 +1565,7 @@ class DetailsInventory(SyncBaseModel):
     hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE, null=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     storage_depots = models.ForeignKey(Storage_depots, on_delete=models.CASCADE, null=True)
-    inventory = models.ForeignKey(Inventory, on_delete=models.CASCADE, null=True)
+    inventory = models.ForeignKey(Inventory, on_delete=models.CASCADE, null=True, related_name='inventories')
     ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE, null=True)
     amount = models.FloatField(default=0.0, null=True, blank=True)
     amount_adjusted = models.FloatField(default=0.0, null=True, blank=True)
