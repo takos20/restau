@@ -714,19 +714,7 @@ class DetailsStock_movementSerializer(DynamicFieldsModelSerializer):
         model = DetailsStock_movement
         fields = '__all__'
 
-class StockSerializer(DynamicFieldsModelSerializer):
-    hospital = HospitalSerializer(many=False, fields=('id', 'name'))
-    """
-    Bifrost Supplies writable nested serializer
-    """
-    ingredient = IngredientSerializer(many=False, fields=('id', 'code', 'name', 'price_per_unit'))
-    storage_depots = Storage_depotsSerializer(many=False, fields=('id', 'name'))
-    
 
-    class Meta:
-        model = Stock
-        fields = '__all__'
-        
 class DetailsInventorySerializer(DynamicFieldsModelSerializer):
     hospital = HospitalSerializer(many=False, fields=('id', 'name'))
     """
@@ -813,6 +801,20 @@ class ComposeIngredientSerializer(DynamicFieldsModelSerializer):
 
         return translations.get(lang) or translations.get("fr")
     
+class StockSerializer(DynamicFieldsModelSerializer):
+    hospital = HospitalSerializer(many=False, fields=('id', 'name'))
+    """
+    Bifrost Supplies writable nested serializer
+    """
+    ingredient = IngredientSerializer(many=False, fields=('id', 'code', 'name', 'price_per_unit'))
+    compose_ingredient = ComposeIngredientSerializer(many=False, fields=('id', 'name'))
+    storage_depots = Storage_depotsSerializer(many=False, fields=('id', 'name'))
+    
+
+    class Meta:
+        model = Stock
+        fields = '__all__'
+        
 class ComposePreparationSerializer(DynamicFieldsModelSerializer):
     # recipe_ingredients = RecipeIngredientSerializer(many=True, read_only=True)
     # category = CategorySerializer()

@@ -343,6 +343,7 @@ class StockFilter(django_filters.FilterSet):
     is_shared = django_filters.BooleanFilter(lookup_expr='exact')
     hospital = django_filters.CharFilter(field_name='hospital__id', lookup_expr='exact')
     ingredient = django_filters.CharFilter(field_name='ingredient__id', lookup_expr='exact')
+    compose_ingredient = django_filters.CharFilter(field_name='compose_ingredient__id', lookup_expr='exact')
     storage_depots = django_filters.CharFilter(field_name='storage_depots__id', lookup_expr='exact')
     code = django_filters.CharFilter(lookup_expr='icontains')    
     name = django_filters.CharFilter(field_name='ingredient__name', lookup_expr='icontains')

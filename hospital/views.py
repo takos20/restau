@@ -645,7 +645,27 @@ class StockViewSet(viewsets.ModelViewSet):
     renderer_classes = [JSONRenderer]
     permission_classes = (IsAuthenticated, DjangoModelPermissions)
     filterset_class = StockFilter
+    
+    def get_queryset(self):
+        user = self.request.user
 
+        qs = (
+            Stock.objects
+            .select_related('hospital')   # très important
+            .filter(deleted=False)
+        )
+
+        if user.hospital_id:
+            qs = qs.filter(hospital_id=user.hospital_id)
+
+        return qs 
+
+    def update(self, request, *args, **kwargs):
+        obj = self.get_object()
+        Stock.objects.filter(storage_depots_id=obj.storage_depots.id ,id=obj.id).update(quantity=0)        
+        serializer = self.get_serializer(obj, many=False)
+        return Response(data=serializer.data, status=status.HTTP_200_OK)
+    
     
     def destroy(self, request, *args, **kwargs):
         obj = self.get_object()
@@ -712,7 +732,7 @@ class StockViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='specify')
     def get_all_stock_specify(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
+        queryset = self.filter_queryset(self.get_queryset()).exclude(ingredient__isnull=True)
         serializer = self.get_serializer(queryset, many=True,
                                          fields=('id', 'ingredient', 'quantity', 'quantity_two')).data
         content = {'content': serializer}
@@ -2605,17 +2625,17 @@ class SuppliesViewSet(viewsets.ModelViewSet):
         )
         return Response(data={"id": supply.id}, status=status.HTTP_200_OK)
 
-    # @action(detail=False, methods=['get'], url_path='stock_available', permission_classes=[AllowAny])
-    # def stock_available(self, request, *args, **kwargs):
-    #     product={}
-    #     get_stock_available = Supplies.objects.filter(storage_depot_id=request.query_params.get("id")).last()
-    #     supplies = SuppliesSerializer(get_stock_available, many=False)
-    #     product['supplie'] = supplies.data
-    #     # print(supplies.data)
-    #     get_product = Product.objects.filter(id=get_stock_available.id).filter(deleted=False)
-    #     serializer = ProductSerializer(get_product, many=True)
-    #     product['product'] = serializer.data
-    #     return Response(data=product, status=status.HTTP_200_OK)
+    @action(detail=False, methods=['POST'], url_path='peremption')
+    def peremption(self, request, *args, **kwargs):
+        user=self.request.user
+        get_stock = Stock.objects.filter(id=request.data['detail_stock'],hospital = user.hospital, storage_depots_id=request.data['storage_depots']).last()
+        get_stock.quantity += Decimal(request.data['quantity'])
+        get_stock.save()
+        message= f"Une opération d’approvisionnement a été effectuée suite au constat d’un stock négatif de l'ingredient {get_stock.ingredient.name}."
+        save_mvt_entry = Supplies.objects.create(hospital = user.hospital, additional_info=message, storage_depots_id=request.data['storage_depots'], suppliers_id=request.data['suppliers'])
+        DetailsSupplies.objects.create(hospital = user.hospital, supplies_id=save_mvt_entry.id, ingredient_id=get_stock.ingredient.id, quantity=request.data['quantity'])
+            
+        return Response(data=save_mvt_entry, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get', 'post'], url_path='details', permission_classes=[AllowAny])
     def details(self, request, *args, **kwargs):
@@ -3678,7 +3698,7 @@ class BillViewSet(viewsets.ModelViewSet):
             if get_details_bills:
                 message= f'Effectue lors de la suppresion de la facture {get_details_bills.last().bills.code}'
                 get_storage_depots = Storage_depots.object.get(hospital = user.hospital,is_default=True)
-                get_supplier = Suppliers.object.get(hospital = user.hospital,is_default=True)
+                get_supplier = Suppliers.object.get(hospital = user.hospital, is_default=True)
                 save_mvt_entry = Supplies.objects.create(hospital = self.request.user.hospital, additional_info=message, storage_depots_id=get_storage_depots.id, suppliers_id=get_supplier.id)
                 for details in get_details_bills:
                     get_details_ingredient = DetailsBillsIngredient.objects.filter(hospital = user.hospital, details_bills_id = details.id).filter(deleted=False)
