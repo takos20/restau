@@ -89,7 +89,7 @@ class SyncService:
             
             # Mettre à jour le timestamp
             self.config.last_sync_upload = timezone.now()
-            self.config.last_sync_version = response["max_version"]
+            # self.config.last_sync_version = response["max_version"]
             self.config.save()
             logging.getLogger('errors_file').info(msg={"error": f"Upload terminé: {results}"})
             return results
@@ -134,25 +134,25 @@ class SyncService:
         if has_deleted:
             queryset = queryset.filter(deleted=False)
 
-        if queryset.count() > 20:
-            batch_results = self._upload_batch(queryset, model)
+        # if queryset.count() > 20:
+        batch_results = self._upload_batch(queryset, model)
 
-            for key in results:
-                results[key] += batch_results.get(key, 0)
+        for key in results:
+            results[key] += batch_results.get(key, 0)
 
-            return results
-        else:
-            for obj in queryset:
-                try:
-                    result = self._upload_object(obj, model)
-                    results[result] += 1
-                except Exception as e:
-                    logging.getLogger('errors_file').info(
-                        msg={"error": f"Erreur upload {model} #{obj.id}: {e}"}
-                    )
-                    results['failed'] += 1
+        return results
+        # else:
+        #     for obj in queryset:
+        #         try:
+        #             result = self._upload_object(obj, model)
+        #             results[result] += 1
+        #         except Exception as e:
+        #             logging.getLogger('errors_file').info(
+        #                 msg={"error": f"Erreur upload {model} #{obj.id}: {e}"}
+        #             )
+        #             results['failed'] += 1
 
-            return results
+        #     return results
         
 
     @retry_operation
@@ -174,10 +174,10 @@ class SyncService:
                     data.pop("hospital", None)
                 payload.append(data)
 
-            url = f"{self.config.remote_api_url}/sync/model/{model_name.lower()}/batch"
+            url = f"{self.config.remote_api_url}/sync/model/{model_name.lower()}/batch/create"
 
-            response = self.session.post(url, json={"objects": payload})
-
+            response = self.session.post(url, json={"objects": payload, "hospital_id":self.config.hospital.id})
+            print(response.json())
             if response.status_code == 200:
                 results['success'] += len(batch)
             else:
@@ -231,10 +231,10 @@ class SyncService:
                     data.pop("hospital")
 
             # URL API
-            url = f"{self.config.remote_api_url}/sync/model/{model_name.lower()}"
+            url = f"{self.config.remote_api_url}/sync/model/{model_name.lower()}/create"
 
             response = self.session.post(url, json=data)
-
+            print(response.json())
             if response.status_code in [200, 201]:
                 sync_log.status = 'SUCCESS'
                 sync_log.synced_at = timezone.now()
@@ -272,6 +272,7 @@ class SyncService:
         Args:
             force: Forcer la sync même si auto_sync est désactivé
         """
+        print(self.config.is_active)
         if not self.config.is_active:
             logging.getLogger('errors_file').info(msg={"error": f"Sync désactivée pour hospital {self.hospital_id}"})
             return
@@ -290,6 +291,7 @@ class SyncService:
         try:
             # Pour chaque modèle à synchroniser
             for model_name in self.config.models_to_sync:
+                print(model_name)
                 try:
                     model_results = self._download_model(model_name)
                     results['success'] += model_results['success']
@@ -336,6 +338,7 @@ class SyncService:
             operation = "UPDATE" if local_obj else "CREATE"
 
             # Création du log
+            # remote_updatedAt=parse_datetime(remote_data.get("updatedAt")),
             try:
                 sync_log = SyncLog.objects.create(
                     hospital_id=self.hospital_id,
@@ -345,7 +348,6 @@ class SyncService:
                     object_id=local_obj.id if local_obj else None,
                     operation=operation,
                     data_snapshot=remote_data,
-                    remote_updatedAt=parse_datetime(remote_data.get("updatedAt")),
                     local_updatedAt=local_obj.updatedAt if local_obj else timezone.now()
                 )
             except Exception as e:
@@ -407,7 +409,9 @@ class SyncService:
         
         try:
             app_label, model = model_name.split(".")
-            Model = apps.get_model(app_label, model)
+            print(model_name.split("."))
+            Model = apps.get_model(app_label, model.lower())
+            
         except LookupError:
             logging.getLogger('errors_file').info(
                 msg={"error": f"Modèle {model} introuvable"}
@@ -420,10 +424,11 @@ class SyncService:
 
         # Récupérer les modifications depuis le serveur
         last_version = self.config.last_sync_version or 0
-        params = {"since_version": last_version}
+        params = {"sync_version": last_version}
 
-        url = f"{self.config.remote_api_url}/sync/model/{model.lower()}"
-
+        url = f"{self.config.remote_api_url}/sync/model/{model.lower()}/list"
+        
+        print(url)
         # Ajouter hospital_id seulement si le modèle le supporte
         if has_hospital:
             params['hospital_id'] = self.hospital_id
@@ -489,7 +494,6 @@ class SyncService:
                 object_id=local_obj.id if local_obj else None,
                 operation=operation,
                 data_snapshot=remote_data,
-                remote_updatedAt=parse_datetime(remote_data.get("updatedAt")),
                 local_updatedAt=local_obj.updatedAt if local_obj else timezone.now()
             )
         except Exception as e:

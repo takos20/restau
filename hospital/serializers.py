@@ -666,6 +666,7 @@ class IngredientSerializer(DynamicFieldsModelSerializer):
     class Meta:
         model = Ingredient
         fields = "__all__"
+
     def get_uid(self, obj):
         return f"ingredient-{obj.id}"
     
@@ -806,7 +807,9 @@ class StockSerializer(DynamicFieldsModelSerializer):
     """
     Bifrost Supplies writable nested serializer
     """
-    ingredient = IngredientSerializer(many=False, fields=('id', 'code', 'name', 'price_per_unit'))
+    # ingredient = IngredientSerializer(many=False, fields=('id', 'code', 'name', 'price_per_unit'))
+    ingredient_name = serializers.SerializerMethodField()
+    ingredient_id = serializers.SerializerMethodField()
     compose_ingredient = ComposeIngredientSerializer(many=False, fields=('id', 'name'))
     storage_depots = Storage_depotsSerializer(many=False, fields=('id', 'name'))
     
@@ -814,6 +817,22 @@ class StockSerializer(DynamicFieldsModelSerializer):
     class Meta:
         model = Stock
         fields = '__all__'
+
+    def get_ingredient_name(self, obj):
+        serializer = IngredientSerializer(
+            obj.ingredient,
+            context=self.context,
+            fields=('name',)
+        )
+        return serializer.data.get('name') if obj.ingredient else None
+    
+    def get_ingredient_id(self, obj):
+        serializer = IngredientSerializer(
+            obj.ingredient,
+            context=self.context,
+            fields=('id',)
+        )
+        return serializer.data.get('id') if obj.ingredient else None
         
 class ComposePreparationSerializer(DynamicFieldsModelSerializer):
     # recipe_ingredients = RecipeIngredientSerializer(many=True, read_only=True)

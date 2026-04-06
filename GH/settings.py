@@ -30,7 +30,7 @@ SECRET_KEY = os.environ.get(
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 # Application definition
 
 ALLOWED_HOSTS = ['*']
@@ -112,25 +112,25 @@ WSGI_APPLICATION = 'GH.wsgi.application'
 
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_TIMEZONE = 'Africa/Douala'
-import dj_database_url
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'yummy',
-#         'USER': 'postgres',
-#         'PASSWORD': 'postgres',
-#         'HOST': '127.0.0.1',
-#         'PORT': env('DB_PORT_2')
-#     }
-# }
-# SYNC_SECRET_KEY = os.environ.get("SYNC_SECRET_KEY")
+# import dj_database_url
 DATABASES = {
-    "default": dj_database_url.config(
-        default=os.environ.get("DATABASE_URL"),
-        conn_max_age=600,
-        ssl_require=True
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'yummy',
+        'USER': 'postgres',
+        'PASSWORD': 'postgres',
+        'HOST': '127.0.0.1',
+        'PORT': env('DB_PORT_2')
+    }
 }
+# SYNC_SECRET_KEY = os.environ.get("SYNC_SECRET_KEY")
+# DATABASES = {
+#     "default": dj_database_url.config(
+#         default=os.environ.get("DATABASE_URL"),
+#         conn_max_age=600,
+#         ssl_require=True
+#     )
+# }
         #'HOST': '172.31.224.1',
 
 # Database
@@ -256,7 +256,7 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=7),
 }
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
-LOG_DIR = os.path.join(BASE_DIR, "log")
+LOG_DIR = os.path.join(BASE_DIR, "logs")
 
 LOGGING = {
     'version': 1,
@@ -281,6 +281,12 @@ LOGGING = {
             'filename': os.path.join(LOG_DIR, "errors.logs"),
             'formatter': 'large',
         },
+        'info_file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(LOG_DIR, "info.logs"),
+            'formatter': 'large',
+        },
         'http_client_file': {
             'level': 'INFO',
             'class': 'logging.FileHandler',
@@ -301,6 +307,11 @@ LOGGING = {
         },
         'http_client_file': {
             'handlers': ['http_client_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'info_file': {
+            'handlers': ['info_file'],
             'level': 'INFO',
             'propagate': False,
         },

@@ -157,7 +157,7 @@ class Cash_movementFilter(django_filters.FilterSet):
     hospital = django_filters.CharFilter(field_name='hospital__id', lookup_expr='exact')
     code = django_filters.CharFilter(lookup_expr='icontains')
     createdAt = django_filters.DateFilter(lookup_expr='exact')
-    type = django_filters.CharFilter(lookup_expr='icontains')
+    type = django_filters.CharFilter(lookup_expr='exact')
     type_cash_movement = django_filters.CharFilter(lookup_expr='icontains')
     cash = django_filters.CharFilter(field_name='cash__id', lookup_expr='exact')
     expenses_nature = django_filters.CharFilter(field_name='expenses_nature__id', lookup_expr='exact')
@@ -166,6 +166,13 @@ class Cash_movementFilter(django_filters.FilterSet):
     amount_movement = django_filters.CharFilter(lookup_expr='icontains')
     start_date = django_filters.DateFilter(field_name='createdAt', lookup_expr=('gte'), )
     end_date = django_filters.DateFilter(field_name='createdAt', lookup_expr=('lte'))
+
+    def filter_cash_active(self, queryset, name, value):
+        if value:
+            return queryset.filter(cash__is_active=True)
+        return queryset.filter(
+            Q(cash__is_active=False) | Q(cash__isnull=True)
+        )
 
     class Meta:
         model = Cash_movement
@@ -353,6 +360,13 @@ class StockFilter(django_filters.FilterSet):
     quantity__gt = django_filters.NumberFilter(field_name='quantity', lookup_expr='gt')
     date = django_filters.DateFilter(lookup_expr='exact')
     createdAt = django_filters.DateFilter(lookup_expr='exact')
+    name_language = django_filters.CharFilter(method='filter_ingredient_name')
+
+
+    def filter_ingredient_name(self, queryset, name, value):
+        return queryset.filter(
+            ingredient__name_language__icontains=value
+        )
 
     class Meta:
         model = Stock
@@ -412,9 +426,7 @@ class BillsFilter(django_filters.FilterSet):
 class PatientSettlementFilter(django_filters.FilterSet):
     is_shared = django_filters.BooleanFilter(lookup_expr='exact')
     hospital = django_filters.CharFilter(field_name='hospital__id', lookup_expr='exact')
-    cashier = django_filters.CharFilter(field_name='cash__user_id', lookup_expr='exact')
     cash = django_filters.CharFilter(field_name='cash__id', lookup_expr='exact')
-    cash_active = django_filters.CharFilter(field_name='cash__is_active', lookup_expr='exact')
     bills = django_filters.CharFilter(field_name='bills__id', lookup_expr='exact')
     amount_cash_gt = django_filters.NumberFilter(field_name='amount_cash', lookup_expr='gt')
     amount_om_gt = django_filters.CharFilter(field_name='amount_om', lookup_expr='gt')

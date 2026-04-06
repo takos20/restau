@@ -28,14 +28,15 @@ class SyncViewSet(viewsets.ViewSet):
     def get_permissions(self):
         return [AllowAny()]
 
-    @action(detail=False, methods=["post"],url_path=r'model/(?P<models>[^/.]+)', url_name='sync-model-create')
+    @action(detail=False, methods=["post"],url_path=r'model/(?P<models>[^/.]+)/create', url_name='sync-model-create')
     def sync_model_create(self, request, models=None):
         api_key = request.headers.get("X-API-KEY")
         hospital_id = request.data.get("hospital_id")
         uuid_val = request.data.get("uuid")  # UUID du client
         sync_version = request.data.get("sync_version", 1)
-
+        print("ici", hospital_id)
         if not hospital_id:
+            
             return Response({"error": "hospital_id requis"}, status=400)
 
         try:
@@ -46,7 +47,7 @@ class SyncViewSet(viewsets.ViewSet):
                 return Response({"error": "Unauthorized"}, status=401)
 
             # Vérifier si le modèle est autorisé
-            model_name = models.capitalize()
+            model_name = models
             model_path = next(
                 (m for m in config.models_to_sync if m.endswith(f".{model_name}")),
                 None
@@ -100,20 +101,21 @@ class SyncViewSet(viewsets.ViewSet):
         except Exception as e:
             logging.getLogger('errors_file').info(msg={"error": str(e)})
             return Response({'error': str(e)}, status=500)
+    
     @action(
         detail=False,
         methods=["get"],
-        url_path=r'model/(?P<models>[^/.]+)',
+        url_path=r'model/(?P<models>[^/.]+)/list',
         url_name='sync-model-list'
     )
     def sync_model_list(self, request, models=None):
         hospital_id = request.query_params.get("hospital_id")
-        last_version = int(request.query_params.get("since_version", 0))
+        last_version = int(request.query_params.get("sync_version", 0))
         page_number = int(request.query_params.get("page", 1))
         limit = int(request.query_params.get("limit", 500))
 
         api_key = request.headers.get("X-API-KEY")
-
+        print("ici", hospital_id)
         if not hospital_id:
             return Response({"error": "hospital_id requis"}, status=400)
 
@@ -125,7 +127,7 @@ class SyncViewSet(viewsets.ViewSet):
                 return Response({"error": "Unauthorized"}, status=401)
 
             # Vérifier si le modèle est autorisé
-            model_name = models.capitalize()
+            model_name = models
             model_path = next(
                 (m for m in config.models_to_sync if m.endswith(f".{model_name}")),
                 None
@@ -182,12 +184,12 @@ class SyncViewSet(viewsets.ViewSet):
     @action(
         detail=False,
         methods=["get"],
-        url_path=r'model/(?P<models>[^/.]+)',
+        url_path=r'model/(?P<models>[^/.]+)/batch/list',
         url_name='sync-model-batch-list'
     )
     def sync_model_batch_list(self, request, models=None):
         hospital_id = request.query_params.get("hospital_id")
-        last_version = int(request.query_params.get("since_version", 0))
+        last_version = int(request.query_params.get("sync_version", 0))
         limit = int(request.query_params.get("limit", 1000))  # batch large par défaut
         api_key = request.headers.get("X-API-KEY")
 
@@ -199,7 +201,7 @@ class SyncViewSet(viewsets.ViewSet):
             if not api_key or api_key != config.api_token:
                 return Response({"error": "Unauthorized"}, status=401)
 
-            model_name = models.capitalize()
+            model_name = models
             model_path = next(
                 (m for m in config.models_to_sync if m.endswith(f".{model_name}")),
                 None
@@ -234,7 +236,7 @@ class SyncViewSet(viewsets.ViewSet):
     @action(
         detail=False,
         methods=["post"],
-        url_path=r'model/(?P<models>[^/.]+)/batch',
+        url_path=r'model/(?P<models>[^/.]+)/batch/create',
         url_name='sync-model-batch-create'
     )
     def sync_model_batch_create(self, request, models=None):
@@ -253,7 +255,8 @@ class SyncViewSet(viewsets.ViewSet):
                 return Response({"error": "Unauthorized"}, status=401)
 
             # Vérifier si le modèle est autorisé
-            model_name = models.capitalize()
+            model_name = models
+            print(model_name)
             model_path = next(
                 (m for m in config.models_to_sync if m.endswith(f".{model_name}")),
                 None

@@ -734,7 +734,7 @@ class StockViewSet(viewsets.ModelViewSet):
     def get_all_stock_specify(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset()).exclude(ingredient__isnull=True)
         serializer = self.get_serializer(queryset, many=True,
-                                         fields=('id', 'ingredient', 'quantity', 'quantity_two')).data
+                                         fields=('id', 'ingredient_name', 'ingredient_id', 'quantity', 'quantity_two')).data
         content = {'content': serializer}
         # patient_id = self.request.query_params.get("patient_id")
         # get_bills = Bills.objects.filter(patient_id=patient_id).aggregate(Sum('balance'))['balance__sum']
@@ -1038,15 +1038,15 @@ class CashViewSet(viewsets.ModelViewSet):
         if Cash.objects.filter(user=user,is_active=True, type_cash='CASH_COUNTERS').exists():
 
             raise Exception("Session déjà ouverte")
-        get_cash = Cash.objects.filter(hospital=self.request.user.hospital, user_id=user.id, is_active=False, type_cash='CASH_COUNTERS', deleted=False).last()
+        get_cash = Cash.objects.filter(hospital=self.request.user.hospital, user_id=user.id, is_active=False, type_cash='CASH_COUNTERS', deleted=False).order_by('-id').last()
         if user.check_password(request.data['password']):
             if cash_form.is_valid():
                 cash = cash_form.save()
                 cash.hospital = self.request.user.hospital
                 cash.user_id = user.id
                 if get_cash:
-                    cash.balance = int(request.data['cash_fund']) + int(get_cash.balance)
-                    cash.cash_fund = int(request.data['cash_fund']) + int(get_cash.balance)
+                    cash.balance = int(request.data['cash_fund']) + int(get_cash.balance) + int(get_cash.cash_fund)
+                    cash.cash_fund = int(request.data['cash_fund']) + int(get_cash.cash_fund)
                 else:
                     cash.balance = request.data['cash_fund']
                     cash.cash_fund = request.data['cash_fund']
@@ -1175,7 +1175,8 @@ class CashViewSet(viewsets.ModelViewSet):
         user = self.request.user
         get_cash = Cash.objects.filter(hospital=user.hospital,user_id=user.id, is_active=True, type_cash='CASH_COUNTERS').last()
         if get_cash:
-            content = {'content': {'is_active': True, 'is_inventory': False}}
+            serializer = CashSerializer(get_cash, many=False)
+            content = {'content': {'is_active': True, 'is_inventory': False, 'cash': serializer.data, 'exit': serializer.data, 'entry': serializer.data}}
             return Response(data=content, status=status.HTTP_200_OK)
         else:
 
@@ -1428,15 +1429,18 @@ class Cash_movementViewSet(viewsets.ModelViewSet):
     filterset_class = Cash_movementFilter
 
     def get_queryset(self):
-        user_hospital = self.request.user
-        if user_hospital.hospital:
-            if 'type' in self.request.query_params:
-                return Cash_movement.objects.filter(deleted=False, hospital=user_hospital.hospital)
-            return Cash_movement.objects.filter(cash__user_id=user_hospital.id,deleted=False, hospital=user_hospital.hospital)
-        else:
-            if 'type' in self.request.query_params:
-                return Cash_movement.objects.filter(deleted=False)
-            return Cash_movement.objects.filter(cash__user_id=user_hospital.id,deleted=False)
+        user = self.request.user
+
+        qs = (
+            Cash_movement.objects
+            .select_related('hospital')   # très important
+            .filter(deleted=False)
+        )
+
+        if user.hospital_id:
+            qs = qs.filter(hospital_id=user.hospital_id)
+
+        return qs  
     
     # filter_backends = (filters.DjangoFilterBackend)
 
@@ -1485,13 +1489,14 @@ class Cash_movementViewSet(viewsets.ModelViewSet):
                     get_cash_dest.balance = balance_after
                     get_cash_dest.save()
                     get_cash_origin.balance = balance_after_origin
+                    get_cash_origin.cash_fund = 0
                     get_cash_origin.save()
                     
                     cash_movement.save() 
                     serializer = self.get_serializer(cash_movement, many=False)
                     return Response(data=serializer.data, status=status.HTTP_201_CREATED)  
                 else:
-                    get_cash = Cash.objects.filter(user_id=user.id, is_active=True, hospital = user.hospital).last()
+                    get_cash = Cash.objects.filter(user_id=user.id, is_active=True, hospital = user.hospital, type_cash='CASH_COUNTERS').last()
                     if get_cash:
                         cash_movement = cash_movement_form.save()
                         cash_movement.hospital = self.request.user.hospital
@@ -1503,7 +1508,7 @@ class Cash_movementViewSet(viewsets.ModelViewSet):
                             cash_movement.balance_after = balance
                             get_cash.balance = balance
                             get_cash.save()
-                        if request.data['type'] == 'ENTER':
+                        if request.data['type'] == 'ENTRY':
                             cash_movement.balance_before = get_cash.balance
                             balance = int(get_cash.balance) + int(request.data['amount_movement'])
                             cash_movement.balance_after = balance
@@ -1583,7 +1588,7 @@ class Cash_movementViewSet(viewsets.ModelViewSet):
                 balance = int(get_cash.balance) + int(cash_movement.amount_movement)
                 get_cash.balance = balance
                 get_cash.save()
-            if cash_movement.type == 'ENTER':
+            if cash_movement.type == 'ENTRY':
                 balance = int(get_cash.balance) - int(cash_movement.amount_movement)
                 get_cash.balance = balance
                 get_cash.save()
@@ -3367,7 +3372,7 @@ class BillViewSet(viewsets.ModelViewSet):
             # bills = bills_form.save()
             # bills.hospital = user.hospital
             
-            get_cash = Cash.objects.filter(hospital = user.hospital,user_id=request.data['cashier'], is_active=True).last()
+            get_cash = Cash.objects.filter(hospital = user.hospital,user_id=request.data['cashier'], is_active=True, type_cash='CASH_COUNTERS').last()
             bills = Bills.objects.filter(hospital = user.hospital, id=request.data['bills']).last()
             if get_cash:
                 bills.cash_id = get_cash.id
@@ -3490,7 +3495,7 @@ class BillViewSet(viewsets.ModelViewSet):
                                                         amount_paid=request.data['amount_paid'],amount_bank_card=amount_bank_card,amount_prepaid=amount_prepaid,amount_om=amount_om,amount_momo=amount_momo,amount_cash=amount_cash,
                                                         amount_received=request.data['amount_received'], cash_id=get_cash.id,
                                                         wordings='')
-                    get_cash.balance = get_cash.balance + request.data['amount_paid']
+                    get_cash.balance += + request.data['amount_paid']
                     get_cash.save()
                     # subprocess.call([r'D:\runserver.bat'])
                 if 'print' in request.query_params:
@@ -3753,11 +3758,17 @@ class BillViewSet(viewsets.ModelViewSet):
                 get_patient_settlement.save()
             else:
                 pass
-            get_bills = Bills.objects.filter(id=kwargs['pk'], deleted=False).last()
+            get_bills = Bills.objects.filter(id=kwargs['pk'], hospital = user.hospital,deleted=False).last()
             get_bills.deleted = True
             get_bills.deleted_by = user.username
             get_bills.deletedAt = timezone.now()
             get_bills.save()
+            
+            get_cash = Cash.objects.filter(type_cash='CASH_COUNTERS',hospital = user.hospital, id=get_bills.cash_id, deleted=False).last()
+            get_cash.deleted = True
+            get_cash.balance -= get_bills.amount_paid
+            get_cash.deletedAt = timezone.now()
+            get_cash.save()
             if get_bills.bill_type != 'ONSITE':
                 get_delivery = DeliveryInfo.objects.filter(bills_id=get_bills.id, hospital = get_bills.hospital).last()
                 get_cetring = CateringInfo.objects.filter(bills_id=get_bills.id, hospital = get_bills.hospital).last()
@@ -7033,8 +7044,7 @@ class DetailsStock_movementViewSet(viewsets.ModelViewSet):
         end_path = path.rsplit('/', 1)[-1]
         obj = DetailsStock_movement.objects.filter(hospital = self.request.user.hospital,id=end_path).last()
         if obj:
-            obj.deleted = True
-            obj.save()
+            obj.delete()
             return Response(status=status.HTTP_200_OK)
         else:
             errors = {"errors": ["Cannot delete item"]}
@@ -7425,7 +7435,6 @@ class Stock_movementViewSet(viewsets.ModelViewSet):
             
             get_details_stock_movement = DetailsStock_movement.objects.filter(hospital = user.hospital, stock_movement=request.data['stock_movement']).filter(deleted=False)
             for stock_mov in get_details_stock_movement:
-
                 get_details_stock = Stock.objects.filter(hospital = user.hospital,
                     ingredient_id=stock_mov.ingredient.id,
                     storage_depots_id=stock_mov.storage_depots).last()
@@ -7434,6 +7443,7 @@ class Stock_movementViewSet(viewsets.ModelViewSet):
                 if stock_mov.type_movement == 'ENTRY':
                     get_details_stock.quantity += int(
                         stock_mov.quantity)
+                    get_details_stock.save()
                 elif stock_mov.type_movement == 'EXIT':
                     get_details_stock.quantity -= int(
                         stock_mov.quantity)
