@@ -3702,8 +3702,8 @@ class BillViewSet(viewsets.ModelViewSet):
             get_details_bills = DetailsBills.objects.filter(hospital = user.hospital,bills_id=kwargs['pk'], deleted=False)
             if get_details_bills:
                 message= f'Effectue lors de la suppresion de la facture {get_details_bills.last().bills.code}'
-                get_storage_depots = Storage_depots.object.get(hospital = user.hospital,is_default=True)
-                get_supplier = Suppliers.object.get(hospital = user.hospital, is_default=True)
+                get_storage_depots = Storage_depots.objects.get(hospital = user.hospital, is_default=True)
+                get_supplier = Suppliers.objects.get(hospital = user.hospital, is_default=True)
                 save_mvt_entry = Supplies.objects.create(hospital = self.request.user.hospital, additional_info=message, storage_depots_id=get_storage_depots.id, suppliers_id=get_supplier.id)
                 for details in get_details_bills:
                     get_details_ingredient = DetailsBillsIngredient.objects.filter(hospital = user.hospital, details_bills_id = details.id).filter(deleted=False)
@@ -5271,7 +5271,7 @@ class BillViewSet(viewsets.ModelViewSet):
         
         queryset = self.filter_queryset(self.get_queryset()).filter(cash__user_id=self.request.user.id, cash__is_active=True)
 
-        serializer = BillsSerializer(queryset, many=True, fields=('id', 'bills','cash', 'code', 'patient', 'patient_account', 'amount_received', 'amount_paid', 'phone_number', 'bills_date', 'bill_type', 'additional_info', 'refund', 'tva', 'bills_amount', 'balance', 'refund', 'createdAt', 'timeAt', 'bank_card_number', 'phone_number_momo', 'phone_number_om', 'amount_om', 'amount_momo', 'amount_prepaid','amount_bank_card', 'amount_cash')).data
+        serializer = BillsSerializer(queryset, many=True, fields=('id', 'bills','deleted','cash', 'code', 'patient', 'patient_account', 'amount_received', 'amount_paid', 'phone_number', 'bills_date', 'bill_type', 'additional_info', 'refund', 'tva', 'bills_amount', 'balance', 'refund', 'createdAt', 'timeAt', 'bank_card_number', 'phone_number_momo', 'phone_number_om', 'amount_om', 'amount_momo', 'amount_prepaid','amount_bank_card', 'amount_cash')).data
         content = {'content': serializer}
         return Response(data=content, status=status.HTTP_200_OK)  
       
