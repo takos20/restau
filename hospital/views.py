@@ -7437,32 +7437,45 @@ class Stock_movementViewSet(viewsets.ModelViewSet):
             for stock_mov in get_details_stock_movement:
                 get_details_stock = Stock.objects.filter(hospital = user.hospital,
                     ingredient_id=stock_mov.ingredient.id,
-                    storage_depots_id=stock_mov.storage_depots).last()
+                    storage_depots_id=stock_mov.storage_depots.id).last()
                 stock_mov.stock_initial = get_details_stock.quantity
                 stock_mov.save()
-                if stock_mov.type_movement == 'ENTRY':
-                    get_details_stock.quantity += int(
-                        stock_mov.quantity)
-                    get_details_stock.save()
-                elif stock_mov.type_movement == 'EXIT':
-                    get_details_stock.quantity -= int(
-                        stock_mov.quantity)
-                    get_details_stock.save()
-                elif stock_mov.type_movement == 'TRANSFER':
-                    get_details_stock.quantity -= int(
-                        stock_mov.quantity)
-
-                    get_details_stock_dest = Stock.objects.filter(hospital = user.hospital,
-                        ingredient_id=stock_mov.ingredient.id,
-                        storage_depots_id=stock_mov.storage_depots_dest).last()
-                    if get_details_stock_dest:
-                        get_details_stock_dest.quantity += int(
+                if get_details_stock:
+                    if stock_mov.type_movement == 'ENTRY':
+                        get_details_stock.quantity += int(
                             stock_mov.quantity)
                         get_details_stock.save()
-                        get_details_stock_dest.save()
-                    else:
+                    elif stock_mov.type_movement == 'EXIT':
+                        get_details_stock.quantity -= int(
+                            stock_mov.quantity)
                         get_details_stock.save()
-                        get_details_stock_dest = Stock.objects.create(hospital = user.hospital,ingredient_id=get_details_stock.ingredient.id, quantity = int(stock_mov.quantity), storage_depots_id=stock_mov.storage_depots_dest.id)
+                    elif stock_mov.type_movement == 'TRANSFER':
+                        get_details_stock.quantity -= int(
+                            stock_mov.quantity)
+                else:
+                    get_details_stock = Stock.objects.create(hospital = user.hospital,ingredient_id=get_details_stock.ingredient.id, quantity = 0, storage_depots_id=stock_mov.storage_depots.id)
+                    if stock_mov.type_movement == 'ENTRY':
+                        get_details_stock.quantity += int(
+                            stock_mov.quantity)
+                        get_details_stock.save()
+                    elif stock_mov.type_movement == 'EXIT':
+                        get_details_stock.quantity -= int(
+                            stock_mov.quantity)
+                        get_details_stock.save()
+                    elif stock_mov.type_movement == 'TRANSFER':
+                        get_details_stock.quantity -= int(
+                            stock_mov.quantity)
+                get_details_stock_dest = Stock.objects.filter(hospital = user.hospital,
+                    ingredient_id=stock_mov.ingredient.id,
+                    storage_depots_id=stock_mov.storage_depots_dest).last()
+                if get_details_stock_dest:
+                    get_details_stock_dest.quantity += int(
+                        stock_mov.quantity)
+                    get_details_stock.save()
+                    get_details_stock_dest.save()
+                else:
+                    get_details_stock.save()
+                    Stock.objects.create(hospital = user.hospital,ingredient_id=get_details_stock.ingredient.id, quantity = int(stock_mov.quantity), storage_depots_id=stock_mov.storage_depots_dest.id)
                     
             get_stock_movement = Stock_movement.objects.filter(id=request.data['stock_movement'],hospital = user.hospital,user=user).last()
             get_stock_movement.storage_depots_id = request.data['storage_depots']
