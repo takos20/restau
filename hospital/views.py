@@ -2636,11 +2636,11 @@ class SuppliesViewSet(viewsets.ModelViewSet):
         get_stock = Stock.objects.filter(id=request.data['detail_stock'],hospital = user.hospital, storage_depots_id=request.data['storage_depots']).last()
         get_stock.quantity += Decimal(request.data['quantity'])
         get_stock.save()
-        message= f"Une opération d’approvisionnement a été effectuée suite au constat d’un stock négatif de l'ingredient {get_stock.ingredient.name}."
+        message= f"Une opération d’approvisionnement a été effectuée suite au constat d’un stock négatif de l'ingredient {get_stock.ingredient}."
         save_mvt_entry = Supplies.objects.create(hospital = user.hospital, additional_info=message, storage_depots_id=request.data['storage_depots'], suppliers_id=request.data['suppliers'])
         DetailsSupplies.objects.create(hospital = user.hospital, supplies_id=save_mvt_entry.id, ingredient_id=get_stock.ingredient.id, quantity=request.data['quantity'])
             
-        return Response(data=save_mvt_entry, status=status.HTTP_200_OK)
+        return Response(status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get', 'post'], url_path='details', permission_classes=[AllowAny])
     def details(self, request, *args, **kwargs):
@@ -3132,7 +3132,6 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
         pun_initial = float(get_details.pub)
         quantity = int(request.data['quantity_served'])
         result, cummulative = apply_promotions(get_details)
-        print(result, cummulative)
         if result == True and cummulative == True:
             if user.hospital.rules_reduction and get_details.dish.is_delivery == True and  user.hospital.use_delivery == True:
                 
@@ -3201,7 +3200,6 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
 
                 future_remise = get_future_remise_notification(count_dish, rules)
                 current_remise = get_applicable_reduction(count_dish, rules)
-                print(count_dish, current_remise)
 
                 if future_remise["should_notify"]:
                     reduction = future_remise
@@ -3424,7 +3422,6 @@ class BillViewSet(viewsets.ModelViewSet):
                         bills.tva=request.data['tva']
                         bills.delivery=request.data['delivery']
                         get_account=PatientAccount.objects.filter(patient_id=request.data['patient'], type_account='PRIVATE').last()
-                        print(get_account)
                         get_account.unpaid += float(request.data['balance'])
                         get_account.save()
                         
