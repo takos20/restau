@@ -3728,7 +3728,7 @@ class BillViewSet(viewsets.ModelViewSet):
                                 get_ingredient.quantity += Decimal(ingredient.quantity)
                                 get_ingredient.save()
                             else:
-                                Stock.objects.create(hospital = user.hospital, ingredient_id = ingredient.ingredient.id, storage_depots_id=get_storage_depots.id, quantity = Decimal(ingredient.quantity))
+                                Stock.objects.create(hospital = user.hospital, compose_ingredient_id = ingredient.compose_ingredient.id, storage_depots_id=get_storage_depots.id, quantity = Decimal(ingredient.quantity))
                             get_ingredient_preparation = ComposePreparation.objects.filter(hospital = user.hospital, compose_ingredient_id = ingredient.compose_ingredient.id).last()
                             if get_ingredient_preparation:
                                 get_ingredient_preparation.stock_quantity += float(ingredient.quantity)
@@ -3763,8 +3763,7 @@ class BillViewSet(viewsets.ModelViewSet):
             get_bills.deleted = True
             get_bills.deleted_by = user.username
             get_bills.deletedAt = timezone.now()
-            get_bills.save()
-            
+            get_bills.save()            
             get_cash = Cash.objects.filter(type_cash='CASH_COUNTERS',hospital = user.hospital, id=get_bills.cash_id, deleted=False).last()
             get_cash.deleted = True
             get_cash.balance -= get_bills.amount_paid
