@@ -3424,6 +3424,7 @@ class BillViewSet(viewsets.ModelViewSet):
                         bills.tva=request.data['tva']
                         bills.delivery=request.data['delivery']
                         get_account=PatientAccount.objects.filter(patient_id=request.data['patient'], type_account='PRIVATE').last()
+                        print(get_account)
                         get_account.unpaid += float(request.data['balance'])
                         get_account.save()
                         
@@ -3730,7 +3731,7 @@ class BillViewSet(viewsets.ModelViewSet):
                                 Stock.objects.create(hospital = user.hospital, ingredient_id = ingredient.ingredient.id, storage_depots_id=get_storage_depots.id, quantity = Decimal(ingredient.quantity))
                             get_ingredient_preparation = ComposePreparation.objects.filter(hospital = user.hospital, compose_ingredient_id = ingredient.compose_ingredient.id).last()
                             if get_ingredient_preparation:
-                                get_ingredient_preparation.stock_quantity += Decimal(ingredient.quantity)
+                                get_ingredient_preparation.stock_quantity += float(ingredient.quantity)
                                 get_ingredient_preparation.save()
                             get_details_ingredient = DetailsComposeIngredient.objects.filter(compose_ingredient_id = ingredient.compose_ingredient.id).filter(deleted=False)
                             for ingredient in get_details_ingredient:
