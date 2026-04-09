@@ -149,7 +149,7 @@ class HospitalViewSet(viewsets.ModelViewSet):
 
                 hospital.save()
                 for perm in Permission.objects.filter(deleted=False):
-                    if ExtendedPermission.objects.filter(permission=perm, hospital=hospital).last():
+                    if ExtendedPermission.objects.filter(permission=perm, hospital=hospital, deleted = False).last():
                         pass
                     else:
                         ExtendedPermission.objects.get_or_create(
@@ -171,7 +171,7 @@ class HospitalViewSet(viewsets.ModelViewSet):
 
                 hospital.save()
                 for perm in Permission.objects.filter(deleted=False):
-                    if ExtendedPermission.objects.filter(permission=perm, hospital=hospital).last():
+                    if ExtendedPermission.objects.filter(permission=perm, hospital=hospital, deleted = False).last():
                         pass
                     else:
                         ExtendedPermission.objects.get_or_create(
@@ -195,9 +195,9 @@ class HospitalViewSet(viewsets.ModelViewSet):
     def statistiques(self, request, *args, **kwargs):
         user_hospital = self.request.user.hospital
         if user_hospital:
-            get_user = User.objects.filter(hospital=user_hospital).count()
+            get_user = User.objects.filter(hospital=user_hospital, deleted = False).count()
             get_expensive_nature = Expenses_nature.objects.count()
-            get_group = ExtendedGroup.objects.filter(hospital=user_hospital).count()
+            get_group = ExtendedGroup.objects.filter(hospital=user_hospital, deleted = False).count()
         else:
             get_user = User.objects.count()
             get_expensive_nature = Expenses_nature.objects.count()
@@ -214,7 +214,7 @@ class HospitalViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field is required."]}
         if 'name' in data:
-            association = Hospital.objects.filter(id = self.request.user.hospital.id,name__icontains=data['name'])
+            association = Hospital.objects.filter(id = self.request.user.hospital.id,name__icontains=data['name'], deleted = False)
             if association:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -224,7 +224,7 @@ class HospitalViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['PATCH'], url_path='isInventory')
     def isInventory(self, request):
-        hospital = Hospital.objects.last()
+        hospital = Hospital.objects.filter(deleted = False)
         hospital.is_inventory = request.data['is_inventory']
         hospital.save()
         return Response(status=status.HTTP_200_OK)
@@ -282,7 +282,7 @@ class UserViewSet(viewsets.ModelViewSet):
             my_group.user_set.add(user)
             user.role = my_group.name
             user.save()
-            get_extented = ExtendedGroup.objects.filter(group=my_group, hospital=user.hospital).last()
+            get_extented = ExtendedGroup.objects.filter(group=my_group, hospital=user.hospital, deleted = False).last()
             if get_extented:
                 serializer = UserSerializer(user, many=False)
                 return Response(data=serializer.data, status=status.HTTP_201_CREATED)
@@ -354,7 +354,7 @@ class UserViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"username": ["This field already exists."]}
         if 'username' in data:
-            users = User.objects.filter(hospital = self.request.user.hospital,username=data['username'])
+            users = User.objects.filter(hospital = self.request.user.hospital,username=data['username'], deleted = False)
             if users:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -367,7 +367,7 @@ class UserViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"email": ["This field already exists."]}
         if 'email' in data:
-            users = User.objects.filter(hospital = self.request.user.hospital,email=data['email'])
+            users = User.objects.filter(hospital = self.request.user.hospital,email=data['email'], deleted = False)
             if users:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -380,7 +380,7 @@ class UserViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"phone": ["This field already exists."]}
         if 'phone' in data:
-            users = User.objects.filter(hospital = self.request.user.hospital,phone=data['phone'])
+            users = User.objects.filter(hospital = self.request.user.hospital,phone=data['phone'], deleted = False)
             if users:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -393,7 +393,7 @@ class UserViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'name' in data:
-            users = ExtendedGroup.objects.filter(hospital = self.request.user.hospital, group__name__icontains=data['name'])
+            users = ExtendedGroup.objects.filter(hospital = self.request.user.hospital, group__name__icontains=data['name'], deleted = False)
             if users:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -457,9 +457,9 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_200_OK)
         else:
             if self.request.user.hospital:
-                group = ExtendedGroup.objects.filter(hospital = self.request.user.hospital)
+                group = ExtendedGroup.objects.filter(hospital = self.request.user.hospital, deleted = False)
             else:
-                group = ExtendedGroup.objects.filter(hospital__isnull=True)
+                group = ExtendedGroup.objects.filter(hospital__isnull=True, deleted = False)
             serializer = ExtendedGroupSerializer(group, many=True)
             content = {'content': serializer.data}
             return Response(data=content, status=status.HTTP_200_OK)
@@ -469,7 +469,7 @@ class UserViewSet(viewsets.ModelViewSet):
         hospital = self.request.user.hospital
         if hospital:
 
-            permissions = Permission.objects.filter(extended_permissions__hospital=hospital)
+            permissions = Permission.objects.filter(extended_permissions__hospital=hospital, deleted = False)
         else:
             permissions = Permission.objects.all()
         serializer_perm = PermissionsSerializer(permissions, many=True)
@@ -532,14 +532,14 @@ class UserViewSet(viewsets.ModelViewSet):
                     else:
                         permissions = Permission.objects.filter(
                             extended_permissions__hospital=self.request.user.hospital,
-                            extended_permissions__is_active=True
+                            extended_permissions__is_active=True, deleted = False
                         )
 
                     group.permissions.set(permissions)
 
                 else:
                     permission_ids = request.data.get('permission', [])
-                    permissions = Permission.objects.filter(id__in=permission_ids)
+                    permissions = Permission.objects.filter(id__in=permission_ids, deleted = False)
                     group.permissions.set(permissions)
 
                 return Response(status=status.HTTP_201_CREATED)
@@ -551,11 +551,11 @@ class UserViewSet(viewsets.ModelViewSet):
 
                     permissions = ExtendedPermission.objects.filter(
                             hospital=hospital,
-                            is_active=True
+                            is_active=True, deleted = False
                         )
                 else:
 
-                    permissions = Permission.objects.filter(content_type=self.request.query_params.get("contentType"))
+                    permissions = Permission.objects.filter(content_type=self.request.query_params.get("contentType"), deleted = False)
                 # permission = Permission.objects.filter(content_type=self.request.query_params.get("contentType"), hospital=self.request.user.hospital)
                 serializer = PermissionsSerializer(permissions, many=True)
                 content = {'content': serializer.data}
@@ -565,9 +565,9 @@ class UserViewSet(viewsets.ModelViewSet):
                 if hospital:
                     if request.data['checkbox']:
                         
-                        group = ExtendedGroup.objects.get(hospital=hospital, id=self.request.query_params.get("id"))
+                        group = ExtendedGroup.objects.get(hospital=hospital, id=self.request.query_params.get("id"), deleted = False)
                         group.group.permissions.clear()
-                        permissions_list = Permission.objects.filter(extension__hospital=hospital)
+                        permissions_list = Permission.objects.filter(extension__hospital=hospital, deleted = False)
                         for permission_index in permissions_list:
                             permission = Permission.objects.get(id=permission_index)
                             group.group.permissions.add(permission)
@@ -599,11 +599,11 @@ class UserViewSet(viewsets.ModelViewSet):
                     
                     if request.data['checkbox']:
                         extended_group = ExtendedGroup.objects.filter(
-                            id=self.request.query_params.get("id"),
+                            id=self.request.query_params.get("id"), deleted = False,
                             hospital__isnull=True
                         ).select_related('group').last()
                         if self.request.user.hospital:
-                            permissions_list = Permission.objects.filter(extension__hospital=self.request.user.hospital)
+                            permissions_list = Permission.objects.filter(extension__hospital=self.request.user.hospital, deleted = False)
                         else:
                             permissions_list = Permission.objects.filter(deleted=False)
                         if extended_group:
@@ -663,7 +663,7 @@ class StockViewSet(viewsets.ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         obj = self.get_object()
-        Stock.objects.filter(storage_depots_id=obj.storage_depots.id ,id=obj.id).update(quantity=0)        
+        Stock.objects.filter(storage_depots_id=obj.storage_depots.id ,id=obj.id, deleted = False).update(quantity=0)        
         serializer = self.get_serializer(obj, many=False)
         return Response(data=serializer.data, status=status.HTTP_200_OK)
     
@@ -694,7 +694,7 @@ class StockViewSet(viewsets.ModelViewSet):
         if get_product:
             for product in get_product:
                 for depot in get_storage_depot:
-                    querysets = Stock.objects.filter(ingredient_id=product.id,storage_depots_id=depot.id,quantity__lte=0).last()
+                    querysets = Stock.objects.filter(ingredient_id=product.id,storage_depots_id=depot.id,quantity__lte=0, deleted = False).last()
                     if querysets:
                         queryset.append(querysets)
         serializer = self.get_serializer(queryset, many=True, fields=('id','ingredient', 'quantity', 'storage_depots')).data
@@ -834,7 +834,7 @@ class StockViewSet(viewsets.ModelViewSet):
                     update_prod = dict(con)
                     stock = DetailsSupplies.objects.filter(product_id=dict(con)['id'],
                                                            createdAt=request.query_params.get("date")).exclude(
-                        supplies=None).aggregate(
+                        supplies=None, deleted = False).aggregate(
                         Sum('quantity'))
 
                     if stock['quantity__sum'] is None:
@@ -846,7 +846,7 @@ class StockViewSet(viewsets.ModelViewSet):
                         details_stock__product_id=dict(con)['id'],
                         type_movement='EXIT',
                         storage_depots_id=request.query_params.get(
-                            "id")).exclude(
+                            "id"), deleted = False).exclude(
                         stock_movement=None).aggregate(
                         Sum('quantity'))
                     stock_movement_entry = DetailsStock_movement.objects.filter(
@@ -854,7 +854,7 @@ class StockViewSet(viewsets.ModelViewSet):
                         details_stock__product_id=dict(con)['id'],
                         type_movement='ENTRY',
                         storage_depots_id=request.query_params.get(
-                            "id")).exclude(
+                            "id"), deleted = False).exclude(
                         stock_movement=None).aggregate(
                         Sum('quantity'))
                     if stock_movement_exit['quantity__sum'] is None:
@@ -878,7 +878,7 @@ class StockViewSet(viewsets.ModelViewSet):
                     update_prod[
                         'qte_stock'] = sum_stock - sum_stock_movement_exit - sum_bills + sum_stock_movement_entry
                     stock_cmup = DetailsSupplies.objects.filter(product_id=dict(con)['id'],
-                                                                createdAt=request.query_params.get("date")).exclude(
+                                                                createdAt=request.query_params.get("date"), deleted = False).exclude(
                         supplies=None).order_by('-id').first()
                     if stock_cmup is None:
                         update_prod['cmup'] = 0
@@ -974,7 +974,7 @@ class Expenses_natureViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'name' in data:
-            departments = Departments.objects.filter(hospital=self.request.user.hospital, name__icontains=data['name'])
+            departments = Departments.objects.filter(hospital=self.request.user.hospital, name__icontains=data['name'], deleted = False)
             if departments:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -1012,12 +1012,12 @@ class CashViewSet(viewsets.ModelViewSet):
         user_hospital=self.request.user.hospital
         if self.request.user.role == 'CASHIER':
             if user_hospital:
-                return Cash.objects.filter(user_id=self.request.user.id, deleted=False, hospital=user_hospital).filter(deleted=False)
+                return Cash.objects.filter(user_id=self.request.user.id, deleted=False, hospital=user_hospital)
             return Cash.objects.filter(user_id=self.request.user.id, deleted=False)
         else:
             if user_hospital:
-                return Cash.objects.filter(deleted=False, hospital=user_hospital).filter(deleted=False)
-            return Cash.objects.filter(deleted=False).filter(deleted=False)
+                return Cash.objects.filter(deleted=False, hospital=user_hospital)
+            return Cash.objects.filter(deleted=False)
 
     def get_permissions(self):
         """
@@ -1036,7 +1036,7 @@ class CashViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         user = self.request.user
         cash_form = CashForm(request.data)
-        if Cash.objects.filter(user=user,is_active=True, type_cash='CASH_COUNTERS').exists():
+        if Cash.objects.filter(user=user,is_active=True, type_cash='CASH_COUNTERS', deleted = False).exists():
 
             raise Exception("Session déjà ouverte")
         get_cash = Cash.objects.filter(hospital=self.request.user.hospital, user_id=user.id, is_active=False, type_cash='CASH_COUNTERS', deleted=False).order_by('-id').last()
@@ -1084,7 +1084,7 @@ class CashViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='current')
     def get_current(self, request, *args, **kwargs):
         user = self.request.user
-        get_cash = Cash.objects.filter(hospital = user.hospital, user_id=user.id, is_active=True, type_cash = 'CASH_COUNTERS').last()
+        get_cash = Cash.objects.filter(hospital = user.hospital, user_id=user.id, is_active=True, type_cash = 'CASH_COUNTERS', deleted = False).last()
         serializer_cash = CashSerializer(get_cash, many=False,  fields=('id', 'code', 'cash_fund', 'is_active', 'user', 'open_date', 'balance'))
         content = {'content': {'cash':serializer_cash.data}}
         return Response(data=content, status=status.HTTP_200_OK)
@@ -1093,7 +1093,7 @@ class CashViewSet(viewsets.ModelViewSet):
     def close(self, request, *args, **kwargs):
         get_user = User.objects.filter(username=request.data['cashier']).last()
         if get_user.check_password(request.data['password']):
-            get_cash = Cash.objects.filter(id=request.data['id'], is_active=True, type_cash='CASH_COUNTERS', hospital=self.request.user.hospital).last()
+            get_cash = Cash.objects.filter(id=request.data['id'], is_active=True, type_cash='CASH_COUNTERS', hospital=self.request.user.hospital, deleted = False).last()
             get_cash.close_date = timezone.now()
             get_cash.is_active = False
             get_cash.save()
@@ -1117,7 +1117,7 @@ class CashViewSet(viewsets.ModelViewSet):
         # stat_category = {'category': 'C.A'}
         # for bill in bills:
         #     stat_category[bill['category']] = bill['turnover']
-        get_cash = Cash.objects.filter(id=request.query_params.get("id")).last()
+        get_cash = Cash.objects.filter(id=request.query_params.get("id"), deleted = False).last()
         html_render = get_template('export_days_state.html')
         html_content = html_render.render(
             {'bills': bills, 'cash': get_cash, 'hospital':self.request.user.hospital})
@@ -1138,9 +1138,9 @@ class CashViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='open/(?P<pk>.+)')
     def open(self, request, *args, **kwargs):
 
-        get_user = User.objects.filter(username=request.data['cashier']).last()
+        get_user = User.objects.filter(username=request.data['cashier'], deleted = False).last()
         if get_user.check_password(request.data['password']):
-            get_cash = Cash.objects.filter(id=request.data['id'], is_active=False).last()
+            get_cash = Cash.objects.filter(id=request.data['id'], is_active=False, deleted = False).last()
             get_cash.is_active = True
             get_cash.save()
             return Response(status=status.HTTP_200_OK)
@@ -1174,7 +1174,7 @@ class CashViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='isOpen')
     def is_open(self, request, *args, **kwargs):
         user = self.request.user
-        get_cash = Cash.objects.filter(hospital=user.hospital,user_id=user.id, is_active=True, type_cash='CASH_COUNTERS').last()
+        get_cash = Cash.objects.filter(hospital=user.hospital,user_id=user.id, is_active=True, type_cash='CASH_COUNTERS', deleted=False).last()
         if get_cash:
             serializer = CashSerializer(get_cash, many=False)
             content = {'content': {'is_active': True, 'is_inventory': False, 'cash': serializer.data, 'exit': serializer.data, 'entry': serializer.data}}
@@ -1206,7 +1206,7 @@ class CashViewSet(viewsets.ModelViewSet):
     def movements_analysis(self, request, *args, **kwargs):
         startdate = request.query_params.get("start_date")
         enddate = request.query_params.get("end_date")
-        get_cash_movement = Cash_movement.objects.filter(createdAt__range=[startdate, enddate])
+        get_cash_movement = Cash_movement.objects.filter(createdAt__range=[startdate, enddate], deleted = False)
         serializer = Cash_movementSerializer(get_cash_movement, many=True, fields=('id', 'code', 'cash', 'motive','expenses_nature', 'type','amount_movement', 'createdAt', 'timeAt'))
         get_settlement = PatientSettlement.objects.filter(createdAt__range=[startdate, enddate], deleted=False)
         serializer_settle = PatientSettlementSerializer(get_settlement, many=True)
@@ -1246,7 +1246,7 @@ class CashViewSet(viewsets.ModelViewSet):
         startdate = request.query_params.get("start_date")
         enddate = request.query_params.get("end_date")
         get_cash = Cash.objects.filter(id=request.query_params.get(
-            "id")).last()
+            "id"), deleted = False).last()
         get_bills = Bills.objects.filter(cash_id=request.query_params.get(
             "id"), deleted=False).last()
         serializer_bills = BillsSerializer(get_bills, many=True)
@@ -1283,7 +1283,7 @@ class CashViewSet(viewsets.ModelViewSet):
 def inventory_update(user, inventory, request):
     get_details_inventory = DetailsInventory.objects.filter(hospital = user.hospital,inventory=None, user_id=user.id).filter(deleted=False)
     for inventories in get_details_inventory:
-        get_product_stock = Stock.objects.filter(hospital = user.hospital,id=inventories.ingredient_id).last()
+        get_product_stock = Stock.objects.filter(hospital = user.hospital,id=inventories.ingredient_id, deleted = False).last()
         if inventories.quantity_adjusted > get_product_stock.qte_stock:
             result = int(inventories.quantity_adjusted) - int(get_product_stock.qte_stock)
             total_amount = result * get_product_stock.cmup
@@ -1384,10 +1384,10 @@ class InventoryViewSet(viewsets.ModelViewSet):
                 inv.save()
                 get_details_stock = Stock.objects.filter(hospital = self.request.user.hospital,ingredient_id=inv.stock.ingredient_id,
                                                                 storage_depots_id=request.data[
-                                                                    'storage_depots']).last()
+                                                                    'storage_depots'], deleted = False).last()
                 get_details_stock.qte_stock = inv.quantity_adjusted
                 get_details_stock.save()
-            get_hospital = Hospital.objects.filter(id=self.request.user.hospital.id).last()
+            get_hospital = Hospital.objects.filter(id=self.request.user.hospital.id, deleted = False).last()
             get_hospital.is_inventory = False
             get_hospital.save()
             serializer = self.get_serializer(inventory, many=False)
@@ -1415,7 +1415,7 @@ class InventoryViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='close')
     def close(self, request, *args, **kwargs):
         user = self.request.user
-        get_cash = Cash.objects.filter(hospital = self.request.user.hospital,user_id=user.id, is_active=True).last()
+        get_cash = Cash.objects.filter(hospital = self.request.user.hospital,user_id=user.id, is_active=True, deleted=False).last()
         get_cash.is_active = False
         get_cash.save()
         return Response(status=status.HTTP_200_OK)
@@ -1469,7 +1469,7 @@ class Cash_movementViewSet(viewsets.ModelViewSet):
             user = self.request.user
             with transaction.atomic():
                 if request.data['type'] == 'TRANSFER':
-                    get_cash = Cash.objects.filter(id=request.data['cash_destination'], hospital = user.hospital).last()
+                    get_cash = Cash.objects.filter(id=request.data['cash_destination'], hospital = user.hospital, deleted = False).last()
                     
                     # get_cash_movement = Cash_movement.objects.filter(hospital=user.hospital,type = 'TRANSFER',createdAt = timezone.now().date(), cash_destination_id=get_cash.id).last()
                     # if get_cash_movement and get_cash.type == 'CASH_MAIN':
@@ -1478,11 +1478,11 @@ class Cash_movementViewSet(viewsets.ModelViewSet):
                     # else:
                     cash_movement = cash_movement_form.save()
                     cash_movement.hospital = user.hospital
-                    get_cash_origin = Cash.objects.filter(id=request.data['cash_origin']).last()
+                    get_cash_origin = Cash.objects.filter(id=request.data['cash_origin'], deleted = False).last()
                     if get_cash_origin.balance == 0 :
                         errors = {"transfer": ["Montant insuffisant pour la transfert."]}
                         return Response(errors, status=status.HTTP_400_BAD_REQUEST)
-                    get_cash_dest = Cash.objects.filter(id=request.data['cash_destination']).last()
+                    get_cash_dest = Cash.objects.filter(id=request.data['cash_destination'], deleted = False).last()
                     balance_after = int(get_cash_dest.balance) + int(request.data['physical_amount'])
                     balance_after_origin = int(get_cash_origin.balance) - int(request.data['physical_amount'])
                     cash_movement.balance_after = balance_after 
@@ -1497,7 +1497,7 @@ class Cash_movementViewSet(viewsets.ModelViewSet):
                     serializer = self.get_serializer(cash_movement, many=False)
                     return Response(data=serializer.data, status=status.HTTP_201_CREATED)  
                 else:
-                    get_cash = Cash.objects.filter(user_id=user.id, is_active=True, hospital = user.hospital, type_cash='CASH_COUNTERS').last()
+                    get_cash = Cash.objects.filter(user_id=user.id, is_active=True, hospital = user.hospital, type_cash='CASH_COUNTERS', deleted = False).last()
                     if get_cash:
                         cash_movement = cash_movement_form.save()
                         cash_movement.hospital = self.request.user.hospital
@@ -1607,9 +1607,9 @@ class Cash_movementViewSet(viewsets.ModelViewSet):
     def get_all_mvt(self, request, *args, **kwargs):
         user = self.request.user
         if 'id' in self.request.query_params:
-            get_cash = Cash_movement.objects.filter(hospital=user.hospital,id=self.request.query_params.get('id')).last()
+            get_cash = Cash_movement.objects.filter(hospital=user.hospital,id=self.request.query_params.get('id'), deleted = False).last()
         else:
-            get_cash = Cash_movement.objects.filter(hospital=user.hospital).last()
+            get_cash = Cash_movement.objects.filter(hospital=user.hospital, deleted = False).last()
         # if 'type' in self.request.query_params:
         #     queryset = Cash_movement.objects.filter(type__icontains=self.request.query_params.get('type'), cash_id=get_cash.id).filter(deleted=False).order_by('-createdAt')
         # else:
@@ -1649,7 +1649,7 @@ class Cash_movementViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'name' in data:
-            departments = Cash_movement.objects.filter(hospital=self.request.user.hospital,name__icontains=data['name'])
+            departments = Cash_movement.objects.filter(hospital=self.request.user.hospital,name__icontains=data['name'], deleted = False)
             if departments:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -1696,7 +1696,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
             # obj.hospital = self.request.user.hospital
             obj.save()
             for translate in self.request.data['name_language']:
-                get_translate = CategoryTranslation.objects.filter(category_id=obj.id, language=translate['language']).last()
+                get_translate = CategoryTranslation.objects.filter(category_id=obj.id, language=translate['language'], deleted = False).last()
                 if get_translate:
                     get_translate.name = translate['name']
                     get_translate.save()
@@ -1715,7 +1715,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
             obj = category_form.save()
             obj.save()
             for translate in self.request.data['name_language']:
-                get_translate = CategoryTranslation.objects.filter(category_id=obj.id, language=translate['language']).last()
+                get_translate = CategoryTranslation.objects.filter(category_id=obj.id, language=translate['language'], deleted = False).last()
                 if get_translate:
                     get_translate.name = translate['name']
                     get_translate.save()
@@ -1746,11 +1746,11 @@ class CategoryViewSet(viewsets.ModelViewSet):
                 dbframe = empexceldata
                 data = {}
                 for dbframe in dbframe.itertuples():
-                    get_obj = Category.objects.filter(translations__name__icontains=dbframe.Nom_fr, hospital=self.request.user.hospital).last()
+                    get_obj = Category.objects.filter(translations__name__icontains=dbframe.Nom_fr, hospital=self.request.user.hospital, deleted = False).last()
                     if get_obj:
                         pass
                     else:
-                        get_obj = Category.objects.filter(translations__name__icontains=dbframe.Nom_en, hospital=self.request.user.hospital).last()
+                        get_obj = Category.objects.filter(translations__name__icontains=dbframe.Nom_en, hospital=self.request.user.hospital, deleted = False).last()
                     
                     langue = [{"name": checkContent(content=dbframe.Nom_fr), "saved": False, "language": "fr"}, {"name": checkContent(content=dbframe.Nom_en), "saved": False, "language": "en"}]
 
@@ -1758,7 +1758,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
                         obj = Category.objects.create(hospital = self.request.user.hospital, name_language=langue)
 
                         for translate in langue:
-                            get_translate = CategoryTranslation.objects.filter(hospital = self.request.user.hospital, category_id=obj.id, language=translate['language']).last()
+                            get_translate = CategoryTranslation.objects.filter(hospital = self.request.user.hospital, category_id=obj.id, language=translate['language'], deleted = False).last()
                             if get_translate:
                                 get_translate.name = translate['name']
                                 get_translate.save()
@@ -1767,7 +1767,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
                     else:
                         for translate in langue:
-                            get_translate = CategoryTranslation.objects.filter(hospital = self.request.user.hospital, category_id=get_obj.id, language=translate['language']).last()
+                            get_translate = CategoryTranslation.objects.filter(hospital = self.request.user.hospital, category_id=get_obj.id, language=translate['language'], deleted = False).last()
                             if get_translate:
                                 get_translate.name = translate['name']
                                 get_translate.save()
@@ -1793,7 +1793,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'name' in data:
-            category = Category.objects.filter(hospital=self.request.user.hospital,translations__name__icontains=data['name_language'])
+            category = Category.objects.filter(hospital=self.request.user.hospital,translations__name__icontains=data['name_language'], deleted = False)
             if category:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -1806,7 +1806,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'title' in data:
-            obj = CategoryTranslation.objects.filter(name__icontains=data['name'])
+            obj = CategoryTranslation.objects.filter(name__icontains=data['name'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -1955,7 +1955,7 @@ class ArchiveViewSet(viewsets.ModelViewSet):
             for content in request.data['contentType']:
                 get_permission = Permission.objects.filter(content_type_id=content).filter(deleted=False)
                 for permission in get_permission:
-                    get_perm = Permission.objects.filter(id=permission.id).last()
+                    get_perm = Permission.objects.filter(id=permission.id, deleted = False).last()
                     get_perm.module_id = module.id
                     get_perm.save()
             serializer = self.get_serializer(module, many=False)
@@ -2140,13 +2140,13 @@ class CityViewSet(viewsets.ModelViewSet):
                 dbframe = empexceldata
                 data = {}
                 for dbframe in dbframe.itertuples():
-                    get_obj = City.objects.filter(name__icontains=dbframe.Nom).last()
+                    get_obj = City.objects.filter(name__icontains=dbframe.Nom, deleted = False).last()
                     if get_obj:
                         get_obj.name = dbframe.Nom
                         get_obj.save()
                     else:
                         if str(dbframe.region) == 'nan':
-                            get_region = Region.objects.filter(name__icontains='default').last()
+                            get_region = Region.objects.filter(name__icontains='default', deleted = False).last()
                             if get_region:
                                 City.objects.create(region_id=get_region.id,name=dbframe.Nom)
                             else:
@@ -2154,7 +2154,7 @@ class CityViewSet(viewsets.ModelViewSet):
                                 City.objects.create(region_id=create_region.id,name=dbframe.Nom)
                         else:
 
-                            get_region = Region.objects.filter(name__icontains=dbframe.region).last()
+                            get_region = Region.objects.filter(name__icontains=dbframe.region, deleted = False).last()
                             if get_region:
                                 City.objects.create(region_id=get_region.id,name=dbframe.Nom)
                             else:
@@ -2170,7 +2170,7 @@ class CityViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'name' in data:
-            obj = City.objects.filter(hospital=self.request.user.hospital, name__icontains=data['name'])
+            obj = City.objects.filter(hospital=self.request.user.hospital, name__icontains=data['name'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -2259,13 +2259,13 @@ class DistrictViewSet(viewsets.ModelViewSet):
                 dbframe = empexceldata
                 data = {}
                 for dbframe in dbframe.itertuples():
-                    get_obj = District.objects.filter(hospital=self.request.user.hospital,name__icontains=dbframe.Nom).last()
+                    get_obj = District.objects.filter(hospital=self.request.user.hospital,name__icontains=dbframe.Nom, deleted = False).last()
                     if get_obj:
                         get_obj.name = dbframe.Nom
                         get_obj.save()
                     else:
                         if str(dbframe.city) == 'nan':
-                            get_region = City.objects.filter(hospital=self.request.user.hospital,name__icontains='default').last()
+                            get_region = City.objects.filter(hospital=self.request.user.hospital,name__icontains='default', deleted = False).last()
                             if get_region:
                                 District.objects.create(hospital = self.request.user.hospital,region_id=get_region.id,name=dbframe.Nom)
                             else:
@@ -2273,7 +2273,7 @@ class DistrictViewSet(viewsets.ModelViewSet):
                                 District.objects.create(hospital = self.request.user.hospital,region_id=create_region.id,name=dbframe.Nom)
                         else:
 
-                            get_region = City.objects.filter(hospital=self.request.user.hospital,name__icontains=dbframe.region).last()
+                            get_region = City.objects.filter(hospital=self.request.user.hospital,name__icontains=dbframe.region, deleted = False).last()
                             if get_region:
                                 District.objects.create(hospital = self.request.user.hospital,region_id=get_region.id,name=dbframe.Nom)
                             else:
@@ -2299,7 +2299,7 @@ class DistrictViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'name' in data:
-            category = Category.objects.filter(name__icontains=data['name'])
+            category = Category.objects.filter(name__icontains=data['name'], deleted = False)
             if category:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -2382,7 +2382,7 @@ class RegionViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'name' in data:
-            obj = Region.objects.filter(name__icontains=data['name'])
+            obj = Region.objects.filter(name__icontains=data['name'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -2413,7 +2413,7 @@ class RegionViewSet(viewsets.ModelViewSet):
                 dbframe = empexceldata
                 data = {}
                 for dbframe in dbframe.itertuples():
-                    get_obj = Region.objects.filter(name__icontains=dbframe.Nom).last()
+                    get_obj = Region.objects.filter(name__icontains=dbframe.Nom, deleted = False).last()
                     if get_obj:
                         get_obj.name = dbframe.Nom
                         get_obj.save()
@@ -2458,7 +2458,7 @@ class SuppliesViewSet(viewsets.ModelViewSet):
         supplies_form = SuppliesForm(request.data)
         if supplies_form.is_valid():
             user = self.request.user
-            supplies = Supplies.objects.filter(id=request.data['supplies'], hospital = user.hospital, user=user).last()
+            supplies = Supplies.objects.filter(id=request.data['supplies'], hospital = user.hospital, user=user, deleted = False).last()
 
             # supplies = supplies_form.save()
             # supplies.hospital = user.hospital
@@ -2473,10 +2473,10 @@ class SuppliesViewSet(viewsets.ModelViewSet):
                 # supplie.save()
 
                 get_stock = Stock.objects.filter(hospital=user.hospital, ingredient_id=supplie.ingredient_id,
-                    storage_depots_id=request.data['storage_depots']
+                    storage_depots_id=request.data['storage_depots'], deleted = False
                 ).last()
                 get_ingredient = Ingredient.objects.filter(
-                        id=supplie.ingredient_id
+                        id=supplie.ingredient_id, deleted = False
                     ).last()
                 if get_stock:
                     get_stock.stock_quantity += supplie.quantity
@@ -2526,8 +2526,8 @@ class SuppliesViewSet(viewsets.ModelViewSet):
         user = self.request.user
         supplies_form = SuppliesForm(request.data, instance=supplies)
         if supplies_form.is_valid():
-            if request.data["is_accounted"] == True:
-                pass
+            # if request.data["is_accounted"] == True:
+            #     pass
                 # supplies = supplies_form.save()
                 # supplies.save()
                 # get_details_supplies = DetailsSupplies.objects.filter(user_id=user.id,
@@ -2557,28 +2557,28 @@ class SuppliesViewSet(viewsets.ModelViewSet):
                 # DetailsStock.objects.bulk_create(bulk_list)
                 # serializer = self.get_serializer(supplies, many=False)
                 # return Response(data=serializer.data, status=status.HTTP_200_OK)
-            else:
-                supplies = supplies_form.save()
-                supplies.timeAt = time.strftime("%H:%M:%S", time.localtime())
-                supplies.save()
-                path = request.path
-                end_path = path.rsplit("/", 1)[-1]
-                get_details_supplies = DetailsSupplies.objects.filter(
-                    hospital=self.request.user.hospital,
-                    user_id=user.id, supplies=end_path
-                ).filter(deleted=False)
-                # for supplie in get_details_supplies:
-                    # supplie.save()
-                    # get_details_stock = DetailsStock.objects.filter(product_id=supplie.product_id,
-                    #                                                 storage_depots_id=supplies.storage_depots_id).last()
+            # else:
+            supplies = supplies_form.save()
+            supplies.timeAt = time.strftime("%H:%M:%S", time.localtime())
+            supplies.save()
+            path = request.path
+            end_path = path.rsplit("/", 1)[-1]
+            get_details_supplies = DetailsSupplies.objects.filter(
+                hospital=self.request.user.hospital,
+                user_id=user.id, supplies=end_path
+            ).filter(deleted=False)
+            # for supplie in get_details_supplies:
+                # supplie.save()
+                # get_details_stock = DetailsStock.objects.filter(product_id=supplie.product_id,
+                #                                                 storage_depots_id=supplies.storage_depots_id).last()
 
-                    # get_details_stock.qte_stock = get_details_stock.qte_stock + supplie.quantity
-                    # get_details_stock.cmup = supplie.cmup
-                    # get_details_stock.save()
-                    # get_product.purchase_price = supplie.arrival_price
-                    # get_product.save()
-                serializer = self.get_serializer(supplies, many=False)
-                return Response(data=serializer.data, status=status.HTTP_200_OK)
+                # get_details_stock.qte_stock = get_details_stock.qte_stock + supplie.quantity
+                # get_details_stock.cmup = supplie.cmup
+                # get_details_stock.save()
+                # get_product.purchase_price = supplie.arrival_price
+                # get_product.save()
+            serializer = self.get_serializer(supplies, many=False)
+            return Response(data=serializer.data, status=status.HTTP_200_OK)
         errors = {**supplies_form.errors}
         return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -2593,7 +2593,7 @@ class SuppliesViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'name' in data:
-            product = Supplies.objects.filter(hospital=self.request.user.hospital,name__icontains=data['name'])
+            product = Supplies.objects.filter(hospital=self.request.user.hospital,name__icontains=data['name'], deleted = False)
             if product:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -2605,7 +2605,7 @@ class SuppliesViewSet(viewsets.ModelViewSet):
     def delete_empty(self, request, pk=None):
         supply = self.get_object()
 
-        has_lines = DetailsSupplies.objects.filter(supplies=supply, hospital=self.request.user.hospital).exists()
+        has_lines = DetailsSupplies.objects.filter(supplies=supply, hospital=self.request.user.hospital, deleted = False).exists()
 
         if has_lines:
             return Response(
@@ -2634,7 +2634,7 @@ class SuppliesViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['POST'], url_path='peremption')
     def peremption(self, request, *args, **kwargs):
         user=self.request.user
-        get_stock = Stock.objects.filter(id=request.data['detail_stock'],hospital = user.hospital, storage_depots_id=request.data['storage_depots']).last()
+        get_stock = Stock.objects.filter(id=request.data['detail_stock'],hospital = user.hospital, storage_depots_id=request.data['storage_depots'], deleted = False).last()
         
         get_stock.quantity += Decimal(request.data['quantity'])
         get_stock.save()
@@ -2643,7 +2643,7 @@ class SuppliesViewSet(viewsets.ModelViewSet):
             save_mvt_entry = Supplies.objects.create(hospital = user.hospital, additional_info=message, storage_depots_id=request.data['storage_depots'], suppliers_id=request.data['suppliers'])
             DetailsSupplies.objects.create(hospital = user.hospital, supplies_id=save_mvt_entry.id, ingredient_id=get_stock.ingredient.id, quantity=request.data['quantity'])
         else:
-            get_stock = ComposeIngredient.objects.filter(id=get_stock.compose_ingredient.id).last()
+            get_stock = ComposeIngredient.objects.filter(id=get_stock.compose_ingredient.id, deleted = False).last()
             get_stock.stock_quantity += float(request.data['quantity'])
             get_stock.save()        
             
@@ -2708,11 +2708,11 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
 
                 
                 if request.data['cash']:
-                    get_cash = Cash.objects.filter(hospital=user.hospital,id=request.data['cash'], user_id=user.id, is_active=True).last()
+                    get_cash = Cash.objects.filter(hospital=user.hospital,id=request.data['cash'], user_id=user.id, is_active=True, deleted = False).last()
                 else:
-                    get_cash = Cash.objects.filter(hospital=user.hospital, user_id=user.id, is_active=True).last()
+                    get_cash = Cash.objects.filter(hospital=user.hospital, user_id=user.id, is_active=True, deleted = False).last()
                 
-                bills = Bills.objects.filter(hospital = user.hospital, id=request.data['bills']).last()
+                bills = Bills.objects.filter(hospital = user.hospital, id=request.data['bills'], deleted = False).last()
                 bills.bill_type = request.data['bill_type']
                 bills.patient_id = request.data['patient']
                 bills.district_id = request.data['district']
@@ -2795,7 +2795,7 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                     if int(get_price_dish.price) == int(request.data['pun']):
                                         new_quantity = recipe.quantity
                                     else:
-                                        new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price))
+                                        new_quantity =  math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price) * 10) / 10
                                     total_quantity = int(request.data['quantity_served']) * int(new_quantity)
                                     if recipe.ingredient:
                                         if recipe.ingredient.price_per_unit:
@@ -2809,7 +2809,7 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                         price=0
                                         DetailsBillsIngredient.objects.create(hospital = user.hospital, compose_ingredient_id=recipe.compose_ingredient.id, quantity=total_quantity,impact_price=price, details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
 
-                                total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id,hospital=user.hospital).aggregate(Sum('total_amount'))
+                                total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id,hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
                                 
                                 detailsBills.cost_production = total['total_amount__sum']
                                 detailsBills.margin = float(detailsBills.amount_net) - float(total['total_amount__sum'])
@@ -2867,7 +2867,7 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                 if int(get_price_dish.price) == int(request.data['pun']):
                                     new_quantity = recipe.quantity 
                                 else:
-                                    new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price))
+                                    new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price) * 10) / 10
                                 total_quantity = int(request.data['quantity_served']) * int(new_quantity)
                                 if recipe.ingredient:
                                     if recipe.ingredient.price_per_unit:
@@ -2881,7 +2881,7 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                     price=0
                                     DetailsBillsIngredient.objects.create(hospital = user.hospital, compose_ingredient_id=recipe.compose_ingredient.id, quantity=total_quantity,impact_price=price, details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
 
-                            total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id,hospital=user.hospital).aggregate(Sum('total_amount'))
+                            total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id,hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
                             
                             detailsBills.cost_production = total['total_amount__sum']
                             detailsBills.margin = float(detailsBills.amount_net) - float(total['total_amount__sum'])
@@ -2901,7 +2901,7 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                                                 deleted=False).last()
 
                         if get_details:
-                            total = DetailsBillsIngredient.objects.filter(details_bills_id=get_details.id,hospital=user.hospital).aggregate(Sum('total_amount'))
+                            total = DetailsBillsIngredient.objects.filter(details_bills_id=get_details.id,hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
                             if total:
                                 cost_production = total['total_amount__sum']
                                 margin=get_details.margin = detailsBills.amount_net - total['total_amount__sum']
@@ -2987,7 +2987,7 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                         if int(get_price_dish.price) == int(request.data['pun']):
                                             new_quantity = recipe.quantity
                                         else:
-                                            new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price))
+                                            new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price) * 10) / 10
                                         total_quantity = int(request.data['quantity_served']) * int(new_quantity)
                                         if recipe.ingredient:
                                             if recipe.ingredient.price_per_unit:
@@ -3001,7 +3001,7 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                             price=0
                                             DetailsBillsIngredient.objects.create(hospital = user.hospital, compose_ingredient_id=recipe.compose_ingredient.id, quantity=total_quantity,impact_price=price, details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
 
-                                    total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id,hospital=user.hospital).aggregate(Sum('total_amount'))
+                                    total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id,hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
                                     
                                     detailsBills.cost_production = total['total_amount__sum']
                                     detailsBills.margin = float(detailsBills.amount_net) - float(total['total_amount__sum'])
@@ -3031,7 +3031,7 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                         if int(get_price_dish.price) == int(request.data['pun']):
                                             new_quantity = recipe.quantity
                                         else:
-                                            new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price))
+                                            new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price) * 10) / 10
                                         total_quantity = int(request.data['quantity_served']) * int(new_quantity)
                                         if recipe.ingredient:
                                             if recipe.ingredient.price_per_unit:
@@ -3045,7 +3045,7 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                             price=0
                                             DetailsBillsIngredient.objects.create(hospital = user.hospital, compose_ingredient_id=recipe.compose_ingredient.id, quantity=total_quantity,impact_price=price, details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
 
-                                    total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id,hospital=user.hospital).aggregate(Sum('total_amount'))
+                                    total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id,hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
                                     
                                     detailsBills.cost_production = total['total_amount__sum']
                                     detailsBills.margin = float(detailsBills.amount_net) - float(total['total_amount__sum'])
@@ -3108,7 +3108,7 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                         if int(get_price_dish.price) == int(request.data['pun']):
                                             new_quantity = recipe.quantity
                                         else:
-                                            new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price))
+                                            new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price) * 10) / 10
                                         total_quantity = int(request.data['quantity_served']) * int(new_quantity)
                                         
                                         if recipe.ingredient:
@@ -3123,7 +3123,7 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                             price=0
                                             DetailsBillsIngredient.objects.create(hospital = user.hospital, compose_ingredient_id=recipe.compose_ingredient.id, quantity=total_quantity,impact_price=price, details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
 
-                                    total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id, hospital=user.hospital).aggregate(Sum('total_amount'))
+                                    total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id, hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
                                     detailsBills.cost_production = total['total_amount__sum']
                                     detailsBills.margin = float(detailsBills.amount_net) - float(total['total_amount__sum'])
                                     detailsBills.save()
@@ -3158,7 +3158,7 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
         get_details = DetailsBills.objects.filter(user_id= user.id, hospital=user.hospital,id=request.data['id'], deleted=False).last()
         
         
-        get_all_bills_ingredient = DetailsBillsIngredient.objects.filter(details_bills_id=get_details.id,hospital=user.hospital).all()
+        get_all_bills_ingredient = DetailsBillsIngredient.objects.filter(details_bills_id=get_details.id,hospital=user.hospital, deleted = False).all()
         for ingredient in get_all_bills_ingredient:
             ingredient.quantity = 0
             ingredient.impact_price = 0
@@ -3175,7 +3175,7 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
             ingredient.save()
 
         # if get_details:
-        total_details_ingredient = DetailsBillsIngredient.objects.filter(details_bills_id=get_details.id,hospital=user.hospital).aggregate(Sum('total_amount'))
+        total_details_ingredient = DetailsBillsIngredient.objects.filter(details_bills_id=get_details.id,hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
                             
         get_details.cost_production = total_details_ingredient['total_amount__sum']
         # get_details.margin = float(int(request.data['quantity_served']) * int(request.data['pun'])) - float(total['total_amount__sum'])
@@ -3305,7 +3305,7 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         user = self.request.user
-        DetailsBillsIngredient.objects.filter(details_bills_id=kwargs['pk'], hospital=user.hospital).delete()
+        DetailsBillsIngredient.objects.filter(details_bills_id=kwargs['pk'], hospital=user.hospital, deleted = False).delete()
         DetailsBills.objects.filter(hospital=user.hospital, id=kwargs['pk'], deleted=False).delete()
         return Response(status=status.HTTP_200_OK)
 
@@ -3316,7 +3316,7 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
         if not patient_id:
             return Response({"error": "patient_id is required"}, status=400)
 
-        qs = DetailsBills.objects.filter(patient_id=patient_id)
+        qs = DetailsBills.objects.filter(patient_id=patient_id, deleted = False)
 
         result = []
         for item in qs:
@@ -3354,8 +3354,8 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['PATCH'], url_path='reload')
     def reload_bills(self, request, *args, **kwargs):
-        get_details = DetailsBillsIngredient.objects.filter(details_bills_id=self.request.query_params.get('details_bills'), is_treated=False)
-        get_details_bills = DetailsBills.objects.filter(id=self.request.query_params.get('details_bills')).last()
+        get_details = DetailsBillsIngredient.objects.filter(details_bills_id=self.request.query_params.get('details_bills'), deleted = False, is_treated=False)
+        get_details_bills = DetailsBills.objects.filter(id=self.request.query_params.get('details_bills'), deleted = False).last()
         
         for details in get_details:
             if details.action == 'ADD':
@@ -3440,8 +3440,8 @@ class BillViewSet(viewsets.ModelViewSet):
             # bills = bills_form.save()
             # bills.hospital = user.hospital
             
-            get_cash = Cash.objects.filter(hospital = user.hospital,user_id=request.data['cashier'], is_active=True, type_cash='CASH_COUNTERS').last()
-            bills = Bills.objects.filter(hospital = user.hospital, id=request.data['bills']).last()
+            get_cash = Cash.objects.filter(hospital = user.hospital,user_id=request.data['cashier'], is_active=True, type_cash='CASH_COUNTERS', deleted = False).last()
+            bills = Bills.objects.filter(hospital = user.hospital, id=request.data['bills'], deleted = False).last()
             if get_cash:
                 bills.cash_id = get_cash.id
                 bills.cash_code = get_cash.code
@@ -3449,7 +3449,7 @@ class BillViewSet(viewsets.ModelViewSet):
                 bills.timeAt = time.strftime("%H:%M:%S", time.localtime())
                 get_details_bills = DetailsBills.objects.filter(hospital = user.hospital,cash__user_id=request.data['cashier'],bills=bills, deleted=False)
                 for bill in get_details_bills:
-                    added = DetailsBillsIngredient.objects.filter(hospital = user.hospital, details_bills_id = bill.id)
+                    added = DetailsBillsIngredient.objects.filter(hospital = user.hospital, details_bills_id = bill.id, deleted = False)
                     # 2. Ingrédients ajoutés
                     if added:
                         for opt in added:
@@ -3480,7 +3480,7 @@ class BillViewSet(viewsets.ModelViewSet):
                         if 'overpayment_action' in request.data:
                             bills.overpayment_action=request.data['overpayment_action']
                             if request.data['overpayment_action'] == 'PREPAID':
-                                get_account_prepaid=PatientAccount.objects.filter(patient_id=request.data['patient'], type_account='PREPAID').last()
+                                get_account_prepaid=PatientAccount.objects.filter(patient_id=request.data['patient'], type_account='PREPAID', deleted = False).last()
                                 get_account_prepaid.balance += float(request.data['refund'])
                                 get_account_prepaid.save()
                                 DetailsPatientAccount.objects.create(type_operation = 'CREDIT', hospital = user.hospital,patient_account_id=get_account_prepaid.id,source='BILL',reference_id=bills.id, balance = int(request.data['refund']), balance_before = get_account_prepaid.balance - int(request.data['refund']), balance_after = get_account_prepaid.balance, user_id = user.id)
@@ -3491,7 +3491,7 @@ class BillViewSet(viewsets.ModelViewSet):
                         bills.ttc=request.data['ttc']
                         bills.tva=request.data['tva']
                         bills.delivery=request.data['delivery']
-                        get_account=PatientAccount.objects.filter(patient_id=request.data['patient'], type_account='PRIVATE').last()
+                        get_account=PatientAccount.objects.filter(patient_id=request.data['patient'], type_account='PRIVATE', deleted = False).last()
                         get_account.unpaid += float(request.data['balance'])
                         get_account.save()
                         
@@ -3525,7 +3525,7 @@ class BillViewSet(viewsets.ModelViewSet):
                             
                         if int(request.data['amount_prepaid']) > 0:
                             bills.amount_prepaid=request.data['amount_prepaid']
-                            get_account=PatientAccount.objects.filter(hospital = user.hospital,patient_id=request.data['patient'], type_account='PREPAID').last()
+                            get_account=PatientAccount.objects.filter(hospital = user.hospital,patient_id=request.data['patient'], type_account='PREPAID', deleted = False).last()
                             if get_account:
                                 DetailsPatientAccount.objects.create(source='BILL',reference_id=bills.id,type_operation = 'DEBIT', hospital = user.hospital,patient_account_id=get_account.id, balance = int(request.data['amount_prepaid']), balance_before = get_account.balance, balance_after = get_account.balance - int(request.data['amount_prepaid']),unpaid = int(request.data['balance']), unpaid_before = get_account.unpaid, unpaid_after = get_account.unpaid + int(request.data['balance']), user_id = user.id)
                                 get_account.balance-= int(request.data['amount_prepaid'])
@@ -3777,38 +3777,38 @@ class BillViewSet(viewsets.ModelViewSet):
                     get_details_ingredient = DetailsBillsIngredient.objects.filter(hospital = user.hospital, details_bills_id = details.id).filter(deleted=False)
                     for ingredient in get_details_ingredient:
                         if ingredient.ingredient:
-                            get_ingredient = Stock.objects.filter(hospital = user.hospital, ingredient_id = ingredient.ingredient.id, storage_depots_id=get_storage_depots.id).last()
+                            get_ingredient = Stock.objects.filter(hospital = user.hospital, ingredient_id = ingredient.ingredient.id, storage_depots_id=get_storage_depots.id, deleted = False).last()
                             if get_ingredient:
                                 get_ingredient.quantity += Decimal(ingredient.quantity)
                                 get_ingredient.save()
                             else:
                                 Stock.objects.create(hospital = user.hospital, ingredient_id = ingredient.ingredient.id, storage_depots_id=get_storage_depots.id, quantity = Decimal(ingredient.quantity))
-                            get_detail=DetailsSupplies.objects.filter(hospital = self.request.user.hospital, supplies_id=save_mvt_entry.id, ingredient_id=ingredient.ingredient.id).last()
+                            get_detail=DetailsSupplies.objects.filter(hospital = self.request.user.hospital, supplies_id=save_mvt_entry.id, ingredient_id=ingredient.ingredient.id, deleted = False).last()
                             if get_detail:
                                 get_detail.quantity += Decimal(ingredient.quantity)
                                 get_detail.save()
                             else:
                                 DetailsSupplies.objects.create(hospital = self.request.user.hospital, supplies_id=save_mvt_entry.id, ingredient_id=ingredient.ingredient.id, quantity=ingredient.quantity)
                         else:
-                            get_ingredient = Stock.objects.filter(hospital = user.hospital, compose_ingredient_id = ingredient.compose_ingredient.id).last()
+                            get_ingredient = Stock.objects.filter(hospital = user.hospital, compose_ingredient_id = ingredient.compose_ingredient.id, deleted = False).last()
                             if get_ingredient:
                                 get_ingredient.quantity += Decimal(ingredient.quantity)
                                 get_ingredient.save()
                             else:
                                 Stock.objects.create(hospital = user.hospital, compose_ingredient_id = ingredient.compose_ingredient.id, storage_depots_id=get_storage_depots.id, quantity = Decimal(ingredient.quantity))
-                            get_ingredient_preparation = ComposePreparation.objects.filter(hospital = user.hospital, compose_ingredient_id = ingredient.compose_ingredient.id).last()
+                            get_ingredient_preparation = ComposePreparation.objects.filter(hospital = user.hospital, compose_ingredient_id = ingredient.compose_ingredient.id, deleted = False).last()
                             if get_ingredient_preparation:
                                 get_ingredient_preparation.stock_quantity += float(ingredient.quantity)
                                 get_ingredient_preparation.save()
                             get_details_ingredient = DetailsComposeIngredient.objects.filter(compose_ingredient_id = ingredient.compose_ingredient.id).filter(deleted=False)
                             for ingredient in get_details_ingredient:
-                                get_ingredient = Stock.objects.filter(hospital = user.hospital, ingredient_id = ingredient.ingredient.id).last()
+                                get_ingredient = Stock.objects.filter(hospital = user.hospital, ingredient_id = ingredient.ingredient.id, deleted = False).last()
                                 if get_ingredient:
                                     get_ingredient.quantity += Decimal(ingredient.quantity)
                                     get_ingredient.save()
                                 else:
                                     Stock.objects.create(hospital = user.hospital, ingredient_id = ingredient.ingredient.id, storage_depots_id=get_storage_depots.id, quantity = Decimal(ingredient.quantity))
-                                get_detail=DetailsSupplies.objects.filter(hospital = self.request.user.hospital, supplies_id=save_mvt_entry.id, ingredient_id=ingredient.ingredient.id).last()
+                                get_detail=DetailsSupplies.objects.filter(hospital = self.request.user.hospital, supplies_id=save_mvt_entry.id, ingredient_id=ingredient.ingredient.id, deleted = False).last()
                                 if get_detail:
                                     get_detail.quantity += Decimal(ingredient.quantity)
                                     get_detail.save()
@@ -3837,9 +3837,9 @@ class BillViewSet(viewsets.ModelViewSet):
             get_cash.deletedAt = timezone.now()
             get_cash.save()
             if get_bills.bill_type != 'ONSITE':
-                get_delivery = DeliveryInfo.objects.filter(bills_id=get_bills.id, hospital = get_bills.hospital).last()
-                get_cetring = CateringInfo.objects.filter(bills_id=get_bills.id, hospital = get_bills.hospital).last()
-                get_event = EventInfo.objects.filter(bills_id=get_bills.id, hospital = get_bills.hospital).last()
+                get_delivery = DeliveryInfo.objects.filter(bills_id=get_bills.id, hospital = get_bills.hospital, deleted = False).last()
+                get_cetring = CateringInfo.objects.filter(bills_id=get_bills.id, hospital = get_bills.hospital, deleted = False).last()
+                get_event = EventInfo.objects.filter(bills_id=get_bills.id, hospital = get_bills.hospital, deleted = False).last()
                 if get_event:
                     get_event.update(delete=True)
                 if get_cetring:
@@ -3869,7 +3869,7 @@ class BillViewSet(viewsets.ModelViewSet):
     def delete_empty(self, request, pk=None):
         bills = self.get_object()
 
-        has_lines = DetailsBills.objects.filter(bills=bills, hospital=request.user.hospital).exists()
+        has_lines = DetailsBills.objects.filter(bills=bills, hospital=request.user.hospital, deleted = False).exists()
 
         if has_lines:
             return Response(
@@ -3897,7 +3897,7 @@ class BillViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['POST'], url_path='verify_permission')
     def verify_permission(self, request, *args, **kwargs):
 
-        get_user = User.objects.filter(username=request.data['username'], type='RESPONSIBLE').last()
+        get_user = User.objects.filter(username=request.data['username'], type='RESPONSIBLE', deleted = False).last()
         if get_user.check_password(request.data['password']):
             return Response(status=status.HTTP_200_OK)
 
@@ -3911,7 +3911,7 @@ class BillViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'name' in data:
-            product = Bills.objects.filter(hospital = self.request.user.hospital,name__icontains=data['name'])
+            product = Bills.objects.filter(hospital = self.request.user.hospital,name__icontains=data['name'], deleted = False)
             if product:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -3929,7 +3929,7 @@ class BillViewSet(viewsets.ModelViewSet):
 
         # if get_cash:
         if 'hospital' in self.request.query_params:
-            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital")).last()
+            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital"), deleted = False).last()
         else:
             user_hospital = self.request.user.hospital
         
@@ -4015,11 +4015,11 @@ class BillViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get', 'post', 'DELETE'], url_path='all_cash_movements')
     def all_cash_movements(self, request, *args, **kwargs):
         user=self.request.user
-        get_cash = Cash.objects.filter(hospital = user.hospital, is_active=True, type_cash='CASH_COUNTERS', user_id=user.id).last()
+        get_cash = Cash.objects.filter(hospital = user.hospital, is_active=True, type_cash='CASH_COUNTERS', user_id=user.id, deleted = False).last()
 
         # serializer_cash = CashSerializer(Cash.objects.filter(id=self.request.query_params.get('id'), deleted=False), many=False,  fields=('id', 'code', 'cash_fund', 'balance','is_active', 'user', 'open_date', 'balance' ))
         if 'hospital' in self.request.query_params:
-            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital")).last()
+            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital"), deleted = False).last()
         else:
             user_hospital = self.request.user.hospital
         if user_hospital:
@@ -4076,7 +4076,7 @@ class BillViewSet(viewsets.ModelViewSet):
             enddate = request.data['end_date_month_payment_method']
         stat_globale_other = {}
         if 'hospital' in self.request.query_params:
-            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital")).last()
+            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital"), deleted = False).last()
         else:
             user_hospital = self.request.user.hospital
         if user_hospital:
@@ -4149,7 +4149,7 @@ class BillViewSet(viewsets.ModelViewSet):
 
         stat_globale_other = {}
         if 'hospital' in self.request.query_params:
-            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital")).last()
+            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital"), deleted = False).last()
         else:
             user_hospital = self.request.user.hospital
         if user_hospital:
@@ -4209,7 +4209,7 @@ class BillViewSet(viewsets.ModelViewSet):
 
         # Filtrage de base
         if 'hospital' in self.request.query_params:
-            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital")).last()
+            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital"), deleted = False).last()
         else:
             user_hospital = self.request.user.hospital
         if user_hospital:
@@ -4280,7 +4280,7 @@ class BillViewSet(viewsets.ModelViewSet):
             enddate = request.data['end_date_month']
 
         if 'hospital' in self.request.query_params:
-            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital")).last()
+            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital"), deleted = False).last()
         else:
             user_hospital = self.request.user.hospital
         if user_hospital:
@@ -4338,7 +4338,7 @@ class BillViewSet(viewsets.ModelViewSet):
             enddate = get_last_date_of_month(year=int(date_month.split("-")[0]), month=int(date_month.split("-")[1]))
         
         if 'hospital' in self.request.query_params:
-            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital")).last()
+            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital"), deleted = False).last()
         else:
             user_hospital = self.request.user.hospital
         if user_hospital:
@@ -4413,7 +4413,7 @@ class BillViewSet(viewsets.ModelViewSet):
             enddate = request.data['end_date_month_first']
 
         if 'hospital' in self.request.query_params:
-            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital")).last()
+            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital"), deleted = False).last()
         else:
             user_hospital = self.request.user.hospital
         if user_hospital:
@@ -4480,7 +4480,7 @@ class BillViewSet(viewsets.ModelViewSet):
             enddate = request.data['end_date_month_entry']
 
         if 'hospital' in self.request.query_params:
-            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital")).last()
+            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital"), deleted = False).last()
         else:
             user_hospital = self.request.user.hospital
         if user_hospital:
@@ -4547,7 +4547,7 @@ class BillViewSet(viewsets.ModelViewSet):
 
 
         if 'hospital' in self.request.query_params:
-            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital")).last()
+            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital"), deleted = False).last()
         else:
             user_hospital = self.request.user.hospital
         if user_hospital:
@@ -4617,7 +4617,7 @@ class BillViewSet(viewsets.ModelViewSet):
             startdate = request.data['start_date_best_selling']
             enddate = request.data['end_date_best_selling']
         if 'hospital' in self.request.query_params:
-            hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital")).last()
+            hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital"), deleted = False).last()
         else:
             hospital = self.request.user.hospital
         if hospital:
@@ -4708,7 +4708,7 @@ class BillViewSet(viewsets.ModelViewSet):
 
         # print(datetime.strptime(startdate, "%Y-%m-%d").date().year,enddate)
         if 'hospital' in self.request.query_params:
-            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital")).last()
+            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital"), deleted = False).last()
         else:
             user_hospital = self.request.user.hospital
         if user_hospital:
@@ -4761,7 +4761,7 @@ class BillViewSet(viewsets.ModelViewSet):
         previous_day = timezone.now() - timedelta(days=1)
         start_day_of_prev_month = date.today().replace(day=1) - timedelta(days=last_day_of_prev_month.day)
         if 'hospital' in self.request.query_params:
-            hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital")).last()
+            hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital"), deleted = False).last()
         else:
             hospital = self.request.user.hospital
 
@@ -4863,7 +4863,7 @@ class BillViewSet(viewsets.ModelViewSet):
                 total=Sum('amount_movement'))
             
             get_cash = Cash.objects.filter(hospital=hospital,is_active=True, open_date__year=today.year, open_date__month=today.month,
-                                        open_date__day=today.day).last()
+                                        open_date__day=today.day, deleted = False).last()
             if get_cash is not None:
                 cash_balance = get_cash.balance
             else:
@@ -4871,7 +4871,7 @@ class BillViewSet(viewsets.ModelViewSet):
 
             get_cash_previous = Cash.objects.filter(hospital=hospital,is_active=True, open_date__year=previous_day.year,
                                                     open_date__month=previous_day.month,
-                                                    open_date__day=previous_day.day).last()
+                                                    open_date__day=previous_day.day, deleted = False).last()
             if get_cash_previous is not None:
                 previous_cash_balance = get_cash_previous.balance
             else:
@@ -4997,7 +4997,7 @@ class BillViewSet(viewsets.ModelViewSet):
                 total=Sum('amount_movement'))
             
             get_cash = Cash.objects.filter(is_active=True, open_date__year=today.year, open_date__month=today.month,
-                                        open_date__day=today.day).last()
+                                        open_date__day=today.day, deleted = False).last()
             if get_cash is not None:
                 cash_balance = get_cash.balance
             else:
@@ -5005,7 +5005,7 @@ class BillViewSet(viewsets.ModelViewSet):
 
             get_cash_previous = Cash.objects.filter(is_active=True, open_date__year=previous_day.year,
                                                     open_date__month=previous_day.month,
-                                                    open_date__day=previous_day.day).last()
+                                                    open_date__day=previous_day.day, deleted = False).last()
             if get_cash_previous is not None:
                 previous_cash_balance = get_cash_previous.balance
             else:
@@ -5126,21 +5126,21 @@ class BillViewSet(viewsets.ModelViewSet):
             enddate = get_last_date_of_month(year=int(date_month.split("-")[0]), month=int(date_month.split("-")[1]))
 
         if 'hospital' in self.request.query_params:
-            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital")).last()
+            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital"), deleted = False).last()
         else:
             user_hospital = self.request.user.hospital
         if user_hospital:
-            get_doctor = Doctor.objects.filter(hospital=user_hospital).values(types=F('type')).annotate(
+            get_doctor = Doctor.objects.filter(hospital=user_hospital, deleted = False).values(types=F('type')).annotate(
                 total=Count('id'))
-            get_appointment = Appointment.objects.filter(hospital=user_hospital,createdAt__range=[startdate, enddate]).values(status=F('appointment_status')).annotate(total=Count('id'))
-            get_appointment_shape = Appointment.objects.filter(hospital=user_hospital,createdAt__range=[startdate, enddate]).values(shape=F('patient_shape')).annotate(total=Count('id'))
-            statGender = Patient.objects.filter(hospital=user_hospital).values(type=F('gender')).annotate(total=Count('id'))
+            get_appointment = Appointment.objects.filter(hospital=user_hospital,createdAt__range=[startdate, enddate], deleted = False).values(status=F('appointment_status')).annotate(total=Count('id'))
+            get_appointment_shape = Appointment.objects.filter(hospital=user_hospital,createdAt__range=[startdate, enddate], deleted = False).values(shape=F('patient_shape')).annotate(total=Count('id'))
+            statGender = Patient.objects.filter(hospital=user_hospital, deleted = False).values(type=F('gender')).annotate(total=Count('id'))
         else:
             get_doctor = Doctor.objects.filter(deleted=False).values(types=F('type')).annotate(
                         total=Count('id'))
-            get_appointment = Appointment.objects.filter(createdAt__range=[startdate, enddate]).values(status=F('appointment_status')).annotate(
+            get_appointment = Appointment.objects.filter(createdAt__range=[startdate, enddate], deleted = False).values(status=F('appointment_status')).annotate(
                 total=Count('id'))
-            get_appointment_shape = Appointment.objects.filter(createdAt__range=[startdate, enddate]).values(shape=F('patient_shape')).annotate(
+            get_appointment_shape = Appointment.objects.filter(createdAt__range=[startdate, enddate], deleted = False).values(shape=F('patient_shape')).annotate(
                 total=Count('id'))
             statGender = Patient.objects.filter(deleted=False).values(type=F('gender')).annotate(
                 total=Count('id'))
@@ -5163,7 +5163,7 @@ class BillViewSet(viewsets.ModelViewSet):
         start_day_of_prev_month = date.today().replace(day=1) - timedelta(days=last_day_of_prev_month.day)
 
         if 'hospital' in self.request.query_params:
-            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital")).last()
+            user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital"), deleted = False).last()
         else:
             user_hospital = self.request.user.hospital
 
@@ -5391,8 +5391,8 @@ class BillViewSet(viewsets.ModelViewSet):
         else:
             queryset = self.filter_queryset(self.get_queryset())
 
-            get_account_prepaid = PatientAccount.objects.filter(patient_id=self.request.query_params.get("patient"), type_account='PREPAID').last()
-            get_account_private = PatientAccount.objects.filter(patient_id=self.request.query_params.get("patient"), type_account='PRIVATE').last()
+            get_account_prepaid = PatientAccount.objects.filter(patient_id=self.request.query_params.get("patient"), type_account='PREPAID', deleted = False).last()
+            get_account_private = PatientAccount.objects.filter(patient_id=self.request.query_params.get("patient"), type_account='PRIVATE', deleted = False).last()
             content = {'content': {'amount_om':queryset.aggregate(Sum('amount_om'))['amount_om__sum'],
             'amount_prepaid':queryset.aggregate(Sum('amount_prepaid'))['amount_prepaid__sum'],
             'amount_momo':queryset.aggregate(Sum('amount_momo'))['amount_momo__sum'],
@@ -5491,15 +5491,15 @@ class PatientSettlementViewSet(viewsets.ModelViewSet):
         patient_settlement_form = PatientSettlementForm(request.data)
         if patient_settlement_form.is_valid():
             user = self.request.user
-            get_cash = Cash.objects.filter(user_id=user.id, hospital = user.hospital, is_active=True).last()
+            get_cash = Cash.objects.filter(user_id=user.id, hospital = user.hospital, is_active=True, deleted=False).last()
             if get_cash:
-                get_bills = Bills.objects.filter(patient_id=request.data['patient'], hospital = user.hospital, deleted=False)
+                get_bills = Bills.objects.filter(patient_id=request.data['patient'], hospital = user.hospital, deleted=False).exclude(balance=0)
                 dette = get_bills.aggregate(Sum('balance'))['balance__sum']
                 patient_settlement = patient_settlement_form.save()
                 patient_settlement.hospital = user.hospital
                 patient_settlement.cash_id = get_cash.id
                 patient_settlement.current_balance = dette
-
+                get_patient_account = PatientAccount.objects.filter(patient_id=request.data['patient'], hospital = user.hospital, deleted=False).last()
                 remaining = request.data['amount_paid']
 
                 for bill in get_bills:
@@ -5508,18 +5508,23 @@ class PatientSettlementViewSet(viewsets.ModelViewSet):
 
                     if remaining >= bill.balance:
                         remaining -= bill.balance
+                        get_patient_account.unpaid = 0
                         bill.balance = 0
                         bill.status = 'PAID'
                     else:
                         bill.balance -= remaining
+                        get_patient_account.unpaid -= remaining
                         remaining = 0
                         bill.status = 'PARTIAL'
-
-                    bill.save()
+                    # get_patient_account.save()
+                    # bill.save()
+                # get_patient = Patient.objects.filter(id=request.data['patient'], hospital = user.hospital).last()
+                # serializer = PatientSerializer(many=False, get_patient).data
+                # if int(request.data['amount_paid']) >= serializer['balance']:
                 if 'overpayment_action' in request.data:
                     patient_settlement.overpayment_action=request.data['overpayment_action']
                     if request.data['overpayment_action'] == 'PREPAID':
-                        get_account_prepaid=PatientAccount.objects.filter(hospital = user.hospital,patient_id=request.data['patient'], type_account='PREPAID').last()
+                        get_account_prepaid=PatientAccount.objects.filter(hospital = user.hospital,patient_id=request.data['patient'], type_account='PREPAID', deleted = False).last()
                         get_account_prepaid.balance += float(request.data['refund'])
                         get_account_prepaid.save()
                         DetailsPatientAccount.objects.create(type_operation = 'CREDIT', hospital = user.hospital,patient_account_id=get_account_prepaid.id, source='SETTEL',reference_id=patient_settlement.id, balance = int(request.data['refund']), balance_before = get_account_prepaid.balance - int(request.data['refund']), balance_after = get_account_prepaid.balance, user_id = user.id)
@@ -5637,7 +5642,7 @@ class PatientSettlementViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'name' in data:
-            product = Product.objects.filter(name__icontains=data['name'])
+            product = Product.objects.filter(name__icontains=data['name'], deleted = False)
             if product:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -5679,9 +5684,9 @@ class PatientSettlementViewSet(viewsets.ModelViewSet):
     def details(self, request, *args, **kwargs):
         if request.method == 'GET':
             if request.query_params.get("patient") != 'null':
-                get_bills = Bills.objects.filter(
+                get_bills = Bills.objects.filter(hospital = self.request.user.hospital,
                     patient_id=request.query_params.get("patient"),
-                    balance__gt=0
+                    balance__gt=0, deleted = False
                 ).order_by('createdAt')
                 serializer = BillsSerializer(get_bills, many=True)
                 return Response(data=serializer.data, status=status.HTTP_200_OK)
@@ -5776,7 +5781,7 @@ class SuppliersViewSet(viewsets.ModelViewSet):
                 dbframe = empexceldata
                 data = {}
                 for dbframe in dbframe.itertuples():
-                    get_obj = Suppliers.objects.filter(hospital=self.request.user.hospital,name__icontains=dbframe.Nom).last()
+                    get_obj = Suppliers.objects.filter(hospital=self.request.user.hospital,name__icontains=dbframe.Nom, deleted = False).last()
                     if get_obj:
                         get_obj.name = checkContent(content=dbframe.Nom)
                         get_obj.phone = checkContentPhone(content=dbframe.Phone)
@@ -5819,7 +5824,7 @@ class SuppliersViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'name' in data:
-            suppliers = Suppliers.objects.filter(hospital=self.request.user.hospital,name__icontains=data['name'])
+            suppliers = Suppliers.objects.filter(hospital=self.request.user.hospital,name__icontains=data['name'], deleted = False)
             if suppliers:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -5895,7 +5900,7 @@ class Type_patientViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"title": ["This field already exists."]}
         if 'title' in data:
-            obj = Type_patient.objects.filter(title__icontains=data['title'])
+            obj = Type_patient.objects.filter(title__icontains=data['title'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -5949,13 +5954,13 @@ class PatientViewSet(viewsets.ModelViewSet):
             patient = patient_form.save()
             patient.hospital = self.request.user.hospital
             patient.save()
-            get_account=PatientAccount.objects.filter(patient=patient, type_account='PRIVATE').last()
+            get_account=PatientAccount.objects.filter(patient=patient, type_account='PRIVATE', deleted = False).last()
             if get_account:
                 pass
             else:
                 PatientAccount.objects.create(hospital = self.request.user.hospital,patient=patient, type_account='PRIVATE')
         
-            get_account=PatientAccount.objects.filter(patient=patient, type_account='PREPAID').last()
+            get_account=PatientAccount.objects.filter(patient=patient, type_account='PREPAID', deleted = False).last()
             if get_account:
                 pass
             else:
@@ -5980,8 +5985,8 @@ class PatientViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         obj = self.get_object()
-        get_appointment = Appointment.objects.filter(patient_id=patient.id).last()
-        get_consultation = Consultation.objects.filter(patient_id=patient.id).last()
+        get_appointment = Appointment.objects.filter(patient_id=patient.id, deleted = False).last()
+        get_consultation = Consultation.objects.filter(patient_id=patient.id, deleted = False).last()
         get_Bills = Bills.objects.filter(patient_id=patient.id, deleted=False).last()
         get_PatientSettlement = PatientSettlement.objects.filter(patient_id=patient.id, deleted=False).last()
         if get_appointment or get_consultation or get_Bills or get_PatientSettlement:
@@ -6183,7 +6188,7 @@ class PatientViewSet(viewsets.ModelViewSet):
     def check_name(self, request, *args, **kwargs):
         errors = {"name": ["This field already exists."]}
         if 'name' in request.data:
-            users = Patient.objects.filter(name__icontains=request.data['name'])
+            users = Patient.objects.filter(name__icontains=request.data['name'], deleted = False)
             if users:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -6220,7 +6225,7 @@ class PatientViewSet(viewsets.ModelViewSet):
                 empexceldata = pd.read_excel(file)
                 dbframe = empexceldata
                 for dbframe in dbframe.itertuples():
-                    get_patient = Patient.objects.filter(name__icontains=dbframe.Nom, dateNaiss=dbframe.Date_naissance).last()
+                    get_patient = Patient.objects.filter(name__icontains=dbframe.Nom, dateNaiss=dbframe.Date_naissance, deleted = False).last()
                     if get_patient:
                         get_patient.name = dbframe.Nom
                         get_patient.phone = dbframe.Contact
@@ -6235,7 +6240,7 @@ class PatientViewSet(viewsets.ModelViewSet):
                         get_patient.save()
                     else:
                         if str(dbframe.ville) == 'nan':
-                            get_city = City.objects.filter(name__icontains='default').last()
+                            get_city = City.objects.filter(name__icontains='default', deleted = False).last()
                             if get_city:
                                 Patient.objects.create(hospital = self.request.user.hospital,name=checkContent(content=dbframe.Nom),
                                                     phone=checkContent(content=dbframe.Contact),
@@ -6260,7 +6265,7 @@ class PatientViewSet(viewsets.ModelViewSet):
                                                     emergency_contact=checkContent(content=dbframe.Contact_urgence),
                                                     mother_name=checkContent(content=dbframe.Nom_mere))
                         else:
-                            get_city = City.objects.filter(name__icontains=dbframe.ville).last()
+                            get_city = City.objects.filter(name__icontains=dbframe.ville, deleted = False).last()
                             if get_city:
                                 Patient.objects.create(hospital = self.request.user.hospital,name=checkContent(content=dbframe.Nom),
                                                phone=checkContent(content=dbframe.Contact),
@@ -6273,7 +6278,7 @@ class PatientViewSet(viewsets.ModelViewSet):
                                                emergency_contact=checkContent(content=dbframe.Contact_urgence),
                                                mother_name=checkContent(content=dbframe.Nom_mere))
                             else:
-                                get_region = Region.objects.filter(name__icontains='default').last()
+                                get_region = Region.objects.filter(name__icontains='default', deleted = False).last()
                                 if get_region:
                                     create_city = City.objects.create(hospital = self.request.user.hospital,region_id=get_region.id,name=dbframe.Nom)
                                     Patient.objects.create(hospital = self.request.user.hospital,name=checkContent(content=dbframe.Nom),
@@ -6315,7 +6320,7 @@ class PatientAccountViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user_hospital = self.request.user.hospital
         if user_hospital:
-            return PatientAccount.objects.filter(hospital=user_hospital)
+            return PatientAccount.objects.filter(hospital=user_hospital, deleted = False)
         return PatientAccount.objects.filter(deleted=False)
 
     def get_permissions(self):
@@ -6376,7 +6381,7 @@ class PatientAccountViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"title": ["This field already exists."]}
         if 'title' in data:
-            obj = PatientAccount.objects.filter(hospital=self.request.user.hospital,title__icontains=data['title'])
+            obj = PatientAccount.objects.filter(hospital=self.request.user.hospital,title__icontains=data['title'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -6413,7 +6418,7 @@ class DetailsSuppliesViewSet(viewsets.ModelViewSet):
         user = self.request.user
         # if getHospital.is_inventory == False:
         detailsSupplies_form = DetailsSuppliesForm(data=request.data)
-        get_supplies = Supplies.objects.filter(id = request.data['supplies'], is_accounted = False, user_id = user.id).last()
+        get_supplies = Supplies.objects.filter(id = request.data['supplies'], is_accounted = False, user_id = user.id, deleted = False).last()
         if detailsSupplies_form.is_valid():
             
             # get_supplies = Supplies.objects.filter(id=request.data['supplies']).last()
@@ -6424,6 +6429,7 @@ class DetailsSuppliesViewSet(viewsets.ModelViewSet):
                 "hospital": user.hospital,
                 "user_id": user.id,
                 "supplies": get_supplies,
+                
             }
             # Add the specific item type
 
@@ -6435,7 +6441,7 @@ class DetailsSuppliesViewSet(viewsets.ModelViewSet):
                 return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
             # Get the last matching entry
-            get_details = DetailsSupplies.objects.filter(**filters).last()
+            get_details = DetailsSupplies.objects.filter(**filters, deleted = False).last()
             if get_details:
                 get_details.quantity_two = request.data.get("quantity_two", 0)
                 get_details.quantity = request.data.get("quantity", 0)
@@ -6483,7 +6489,7 @@ class DetailsSuppliesViewSet(viewsets.ModelViewSet):
         user = self.request.user
         path = request.path
         end_path = path.rsplit("/", 1)[-1]
-        get_bills = DetailsSupplies.objects.filter(id=end_path, hospital = user.hospital, supplies_id = request.data["supplies"], user_id = user.id).last()
+        get_bills = DetailsSupplies.objects.filter(id=end_path, hospital = user.hospital, supplies_id = request.data["supplies"], user_id = user.id, deleted = False).last()
         if get_bills:
             get_bills.arrival_price = Decimal(request.data["arrival_price"])
             get_bills.business_unit = request.data["business_unit"]
@@ -6526,7 +6532,7 @@ class DetailsSuppliesViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         path = request.path
         end_path = path.rsplit('/', 1)[-1]
-        obj = DetailsSupplies.objects.filter(hospital=self.request.user.hospital,id=end_path).last()
+        obj = DetailsSupplies.objects.filter(hospital=self.request.user.hospital,id=end_path, deleted = False).last()
         if obj:
             obj.deleted = True
             obj.save()
@@ -6554,7 +6560,7 @@ class DetailsPatientAccountViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user_hospital = self.request.user.hospital
         if user_hospital:
-            return DetailsPatientAccount.objects.filter(hospital=user_hospital)
+            return DetailsPatientAccount.objects.filter(hospital=user_hospital, deleted = False)
         return DetailsPatientAccount.objects.filter(deleted=False)
 
     def get_permissions(self):
@@ -6576,8 +6582,8 @@ class DetailsPatientAccountViewSet(viewsets.ModelViewSet):
         if obj_form.is_valid():
             obj = obj_form.save()
             obj.hospital = self.request.user.hospital
-            get_last_account = PatientAccount.objects.filter(hospital = self.request.user.hospital,id=request.data['patient_account'], type_account='PREPAID').last()
-            get_last = DetailsPatientAccount.objects.filter(hospital = self.request.user.hospital,patient_account_id=get_last_account.id).last()
+            get_last_account = PatientAccount.objects.filter(hospital = self.request.user.hospital,id=request.data['patient_account'], type_account='PREPAID', deleted = False).last()
+            get_last = DetailsPatientAccount.objects.filter(hospital = self.request.user.hospital,patient_account_id=get_last_account.id, deleted = False).last()
             obj.user_id = self.request.user.id
             obj.balance_before = get_last_account.balance
             obj.balance = int(request.data['balance'])
@@ -6605,8 +6611,8 @@ class DetailsPatientAccountViewSet(viewsets.ModelViewSet):
         obj_form = DetailsPatientAccountForm(request.data, instance=obj)
         if obj_form.is_valid():
             obj = obj_form.save()
-            get_last_account = PatientAccount.objects.filter(hospital = self.request.user.hospital,id=request.data['patient_account'], type_account='PREPAID').last()
-            get_last = DetailsPatientAccount.objects.filter(hospital = self.request.user.hospital,patient_account_id=get_last_account.id).last()
+            get_last_account = PatientAccount.objects.filter(hospital = self.request.user.hospital,id=request.data['patient_account'], type_account='PREPAID', deleted = False).last()
+            get_last = DetailsPatientAccount.objects.filter(hospital = self.request.user.hospital,patient_account_id=get_last_account.id, deleted = False).last()
             obj.balance_before = get_last_account.balance
             obj.balance = int(request.data['balance'])
             if request.data['type_operation'] == 'CREDIT':
@@ -6780,13 +6786,13 @@ class InsuranceViewSet(viewsets.ModelViewSet):
                 dbframe = empexceldata
                 data = {}
                 for dbframe in dbframe.itertuples():
-                    get_obj = City.objects.filter(hospital=self.request.user.hospital,name__icontains=dbframe.Nom).last()
+                    get_obj = City.objects.filter(hospital=self.request.user.hospital,name__icontains=dbframe.Nom, deleted = False).last()
                     if get_obj:
                         get_obj.name = dbframe.Nom
                         get_obj.save()
                     else:
                         if dbframe.Ville:
-                            get_region = City.objects.filter(hospital=self.request.user.hospital,name__icontains='default').last()
+                            get_region = City.objects.filter(hospital=self.request.user.hospital,name__icontains='default', deleted = False).last()
                             if get_region:
                                 Insurance.objects.create(hospital = self.request.user.hospital,city_id=get_region.id,name=dbframe.Nom,mailbox=checkContent(content=dbframe.Boite_postale),number=checkContent(content=dbframe.Phone),responsible=checkContent(content=dbframe.Responsable),percent=checkContent(content=dbframe.Pourcentage))
                             else:
@@ -6794,7 +6800,7 @@ class InsuranceViewSet(viewsets.ModelViewSet):
                                 Insurance.objects.create(hospital = self.request.user.hospital,city_id=create_region.id,name=dbframe.Nom,mailbox=checkContent(content=dbframe.Boite_postale),number=checkContent(content=dbframe.Phone),responsible=checkContent(content=dbframe.Responsable),percent=checkContent(content=dbframe.Pourcentage))
                         else:
 
-                            get_region = City.objects.filter(hospital=self.request.user.hospital,name__icontains=dbframe.Ville).last()
+                            get_region = City.objects.filter(hospital=self.request.user.hospital,name__icontains=dbframe.Ville, deleted = False).last()
                             if get_region:
                                 Insurance.objects.create(hospital = self.request.user.hospital,city_id=get_region.id,name=dbframe.Nom,mailbox=checkContent(content=dbframe.Boite_postale),number=checkContent(content=dbframe.Phone),responsible=checkContent(content=dbframe.Responsable),percent=checkContent(content=dbframe.Pourcentage))
                             else:
@@ -6809,7 +6815,7 @@ class InsuranceViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'name' in data:
-            reagent = Insurance.objects.filter(hospital=self.request.user.hospital,name__icontains=data['name'])
+            reagent = Insurance.objects.filter(hospital=self.request.user.hospital,name__icontains=data['name'], deleted = False)
             if reagent:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -6822,7 +6828,7 @@ class InsuranceViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"email": ["This field already exists."]}
         if 'email' in data:
-            reagent = Insurance.objects.filter(hospital=self.request.user.hospital,email__icontains=data['email'])
+            reagent = Insurance.objects.filter(hospital=self.request.user.hospital,email__icontains=data['email'], deleted = False)
             if reagent:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -6835,7 +6841,7 @@ class InsuranceViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"number": ["This field already exists."]}
         if 'number' in data:
-            reagent = Insurance.objects.filter(hospital=self.request.user.hospital,number__icontains=data['number'])
+            reagent = Insurance.objects.filter(hospital=self.request.user.hospital,number__icontains=data['number'], deleted = False)
             if reagent:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -6848,7 +6854,7 @@ class InsuranceViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"phone": ["This field already exists."]}
         if 'phone' in data:
-            reagent = Insurance.objects.filter(hospital=self.request.user.hospital,phone__icontains=data['phone'])
+            reagent = Insurance.objects.filter(hospital=self.request.user.hospital,phone__icontains=data['phone'], deleted = False)
             if reagent:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -6898,7 +6904,7 @@ from django.core.handlers import exception
 def user_logout(request):
     if request.method == 'POST':
         try:
-            get_user = User.objects.filter(id=request.user.id).last()
+            get_user = User.objects.filter(id=request.user.id, deleted = False).last()
             get_user.is_online = False
             get_user.save()
             return Response(status=status.HTTP_200_OK)
@@ -6972,7 +6978,7 @@ class Storage_depotsViewSet(viewsets.ModelViewSet):
             obj.hospital = self.request.user.hospital
             obj.save()
             for translate in self.request.data['name_language']:
-                get_translate = WarehouseTranslation.objects.filter(hospital = self.request.user.hospital, warehouse_id=obj.id, language=translate['language']).last()
+                get_translate = WarehouseTranslation.objects.filter(hospital = self.request.user.hospital, warehouse_id=obj.id, language=translate['language'], deleted = False).last()
                 if get_translate:
                     get_translate.name = translate['name']
                     get_translate.save()
@@ -6995,7 +7001,7 @@ class Storage_depotsViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'name' in data:
-            storage_depots = Storage_depots.objects.filter(name__icontains=data['name'])
+            storage_depots = Storage_depots.objects.filter(name__icontains=data['name'], deleted = False)
             if storage_depots:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -7049,7 +7055,7 @@ class DetailsStock_movementViewSet(viewsets.ModelViewSet):
                     ingredient_id=request.data['ingredient'],
                     storage_depots_id=request.data[
                         'storage_depots'],
-                    stock_movement=request.data['stock_movement'], user_id=user.id).last()
+                    stock_movement=request.data['stock_movement'], user_id=user.id, deleted = False).last()
                 if get_detailsStock_movement:
                     if request.data['type_movement'] == 'TRANSFER' and int(request.data['storage_depots']) == int(request.data['storage_depots_dest']):
                         errors = {"errors": ["Destination must be different from source."]}
@@ -7096,7 +7102,7 @@ class DetailsStock_movementViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         path = request.path
         end_path = path.rsplit('/', 1)[-1]
-        get_details = DetailsStock_movement.objects.filter(stock_movement_id = request.data['stock_movement']['id'], hospital = self.request.user.hospital,id=end_path).last()
+        get_details = DetailsStock_movement.objects.filter(stock_movement_id = request.data['stock_movement']['id'], hospital = self.request.user.hospital,id=end_path, deleted = False).last()
         if get_details:
             get_details.quantity = request.data['quantity']
             get_details.type_movement = request.data['type_movement']
@@ -7109,7 +7115,7 @@ class DetailsStock_movementViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         path = request.path
         end_path = path.rsplit('/', 1)[-1]
-        obj = DetailsStock_movement.objects.filter(hospital = self.request.user.hospital,id=end_path).last()
+        obj = DetailsStock_movement.objects.filter(hospital = self.request.user.hospital,id=end_path, deleted = False).last()
         if obj:
             obj.delete()
             return Response(status=status.HTTP_200_OK)
@@ -7124,7 +7130,7 @@ class DetailsStock_movementViewSet(viewsets.ModelViewSet):
             if self.request.GET.get("stock_movement") == 'undefined' or self.request.GET.get(
                     "stock_movement") == 'null':
                 serializer = self.get_serializer(DetailsStock_movement.objects.filter(hospital = self.request.user.hospital,user_id=user.id, stock_movement_id=None,
-                                                            deleted=False).filter(deleted=False), many=True)
+                                                            deleted=False), many=True)
                 content={"content":serializer.data}
                 return Response(data=content,status=status.HTTP_200_OK)
             elif self.request.GET.get("stock_movement") == 'reset':
@@ -7195,20 +7201,19 @@ class DetailsStock_movementViewSet(viewsets.ModelViewSet):
             get_product_bills = DetailsBills.objects.filter(hospital = self.request.user.hospital,medical_act=None,
                                                             bills__storage_depots_id=self.request.query_params.get(
                                                                 "storage_depots"),
-                                                            deleted=False,
                                                             details_stock__product_id=self.request.query_params.get(
                                                                 "product"),
-                                                            createdAt__range=[startdate, enddate])
+                                                            createdAt__range=[startdate, enddate], deleted = False)
 
             get_product_supplies = DetailsSupplies.objects.filter(hospital = self.request.user.hospital,
                 storage_depots_id=self.request.query_params.get("storage_depots"),
                 product_id=self.request.query_params.get("product"),
-                createdAt__range=[startdate, enddate])
+                createdAt__range=[startdate, enddate], deleted = False)
 
             get_product_stock = DetailsStock_movement.objects.filter(hospital = self.request.user.hospital,
                 storage_depots_id=self.request.query_params.get("storage_depots"),
                 details_stock__product_id=self.request.query_params.get("product"),
-                createdAt__range=[startdate, enddate])
+                createdAt__range=[startdate, enddate], deleted = False)
             content = {'content': {'bill': DetailsBillsSerializer(get_product_bills, many=True).data,
                                    'bills': DetailsBillsSerializer(get_product_bills,
                                                                    many=True).data + DetailsSuppliesSerializer(
@@ -7277,7 +7282,7 @@ class InventoryViewSet(viewsets.ModelViewSet):
             # inventory.hospital = self.request.user.hospital
             # # inventory_update(user=user, inventory=inventory, request=request)
             # inventory.save()
-            get_inventory = Inventory.objects.filter(hospital = self.request.user.hospital, user=self.request.user, id=request.data['inventory']).last()
+            get_inventory = Inventory.objects.filter(hospital = self.request.user.hospital, user=self.request.user, id=request.data['inventory'], deleted = False).last()
             get_inventory.storage_depots_id = request.data['storage_depots']
             get_inventory.reason_inventory = request.data['reason_inventory']
             get_inventory.save()
@@ -7287,7 +7292,7 @@ class InventoryViewSet(viewsets.ModelViewSet):
             for inv in get_details_inv:
                 get_details_stock = Stock.objects.filter(hospital = self.request.user.hospital, ingredient_id=inv.ingredient.id,
                                                                 storage_depots_id=request.data[
-                                                                    'storage_depots']).last()
+                                                                    'storage_depots'], deleted = False).last()
                 get_details_stock.quantity = inv.quantity_adjusted
                 get_details_stock.save()
             # get_hospital = Hospital.objects.filter(id=self.request.user.hospital.id).last()
@@ -7319,7 +7324,7 @@ class InventoryViewSet(viewsets.ModelViewSet):
     def delete_empty(self, request, pk=None):
         supply = self.get_object()
 
-        has_lines = DetailsInventory.objects.filter(Inventory=supply, hospital=self.request.user.hospital).exists()
+        has_lines = DetailsInventory.objects.filter(Inventory=supply, hospital=self.request.user.hospital, deleted = False).exists()
 
         if has_lines:
             return Response(
@@ -7346,7 +7351,7 @@ class InventoryViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='close')
     def close(self, request, *args, **kwargs):
         user = self.request.user
-        get_cash = Cash.objects.filter(hospital = self.request.user.hospital,user_id=user.id, is_active=True).last()
+        get_cash = Cash.objects.filter(hospital = self.request.user.hospital,user_id=user.id, is_active=True, deleted = False).last()
         get_cash.is_active = False
         get_cash.save()
         return Response(status=status.HTTP_200_OK)
@@ -7384,7 +7389,7 @@ class DetailsInventoryViewSet(viewsets.ModelViewSet):
             get_details_inventory = DetailsInventory.objects.filter(hospital = self.request.user.hospital,
                 ingredient_id=request.data['ingredient'],
                 inventory=request.data[
-                    'inventory'], user_id=user.id).last()
+                    'inventory'], user_id=user.id, deleted = False).last()
             if get_details_inventory:
                 get_details_inventory.amount = request.data['amount']
                 get_details_inventory.amount_adjusted = request.data['amount_adjusted']
@@ -7404,7 +7409,7 @@ class DetailsInventoryViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         path = request.path
         end_path = path.rsplit('/', 1)[-1]
-        get_details = DetailsSupplies.objects.filter(hospital = self.request.user.hospital,id=end_path).last()
+        get_details = DetailsSupplies.objects.filter(hospital = self.request.user.hospital,id=end_path, deleted = False).last()
         if get_details:
             get_details.supplies_id = request.data['supplies']
             get_details.product_id = get_details.product
@@ -7414,9 +7419,9 @@ class DetailsInventoryViewSet(viewsets.ModelViewSet):
             get_details.product_name = request.data['product_name']
             get_details.arrival_price = request.data['arrival_price']
             get_details.save()
-            get_sum_details = DetailsSupplies.objects.filter(hospital = self.request.user.hospital,supplies_id=request.data['supplies']).aggregate(
+            get_sum_details = DetailsSupplies.objects.filter(hospital = self.request.user.hospital,supplies_id=request.data['supplies'], deleted = False).aggregate(
                 Sum('total_amount'))
-            get_supplies = Supplies.objects.filter(hospital = self.request.user.hospital,id=get_details.supplies.id).last()
+            get_supplies = Supplies.objects.filter(hospital = self.request.user.hospital,id=get_details.supplies.id, deleted = False).last()
             get_supplies.supply_amount = get_sum_details['total_amount__sum']
             get_supplies.save()
             return Response(status=status.HTTP_201_CREATED)
@@ -7504,7 +7509,7 @@ class Stock_movementViewSet(viewsets.ModelViewSet):
             for stock_mov in get_details_stock_movement:
                 get_details_stock = Stock.objects.filter(hospital = user.hospital,
                     ingredient_id=stock_mov.ingredient.id,
-                    storage_depots_id=stock_mov.storage_depots.id).last()
+                    storage_depots_id=stock_mov.storage_depots.id, deleted = False).last()
                 stock_mov.stock_initial = get_details_stock.quantity
                 stock_mov.save()
                 if get_details_stock:
@@ -7534,7 +7539,7 @@ class Stock_movementViewSet(viewsets.ModelViewSet):
                             stock_mov.quantity)
                 get_details_stock_dest = Stock.objects.filter(hospital = user.hospital,
                     ingredient_id=stock_mov.ingredient.id,
-                    storage_depots_id=stock_mov.storage_depots_dest).last()
+                    storage_depots_id=stock_mov.storage_depots_dest, deleted = False).last()
                 if get_details_stock_dest:
                     get_details_stock_dest.quantity += int(
                         stock_mov.quantity)
@@ -7544,7 +7549,7 @@ class Stock_movementViewSet(viewsets.ModelViewSet):
                     get_details_stock.save()
                     Stock.objects.create(hospital = user.hospital,ingredient_id=get_details_stock.ingredient.id, quantity = int(stock_mov.quantity), storage_depots_id=stock_mov.storage_depots_dest.id)
                     
-            get_stock_movement = Stock_movement.objects.filter(id=request.data['stock_movement'],hospital = user.hospital,user=user).last()
+            get_stock_movement = Stock_movement.objects.filter(id=request.data['stock_movement'],hospital = user.hospital,user=user, deleted = False).last()
             get_stock_movement.storage_depots_id = request.data['storage_depots']
             get_stock_movement.type_movement = request.data['type_movement']
             get_stock_movement.reason_movement = request.data['reason_movement']
@@ -7567,22 +7572,22 @@ class Stock_movementViewSet(viewsets.ModelViewSet):
                 get_details_stock_movement = DetailsStock_movement.objects.filter(hospital = self.request.user.hospital,
                 storage_depots_id=request.data['storage_depots'], stock_movement_id=obj.id).filter(deleted=False)
                 get_details_stock_movement_first = DetailsStock_movement.objects.filter(hospital = self.request.user.hospital,
-                storage_depots_id=request.data['storage_depots'], stock_movement_id=obj.id).first()
+                storage_depots_id=request.data['storage_depots'], stock_movement_id=obj.id, deleted = False).first()
                 message= f'Effectue lors de transfert des produits du document de stock {obj.code}'
                 save_mvt_entry = Supplies.objects.create(hospital = self.request.user.hospital,storage_depots_id=get_details_stock_movement_first.storage_depots_dest.id, additional_info=message)
                 for stock_mov in get_details_stock_movement:
                     get_details_stock = Stock.objects.filter(hospital = self.request.user.hospital,
                     product_id=stock_mov.ingredient_id,
-                    storage_depots_id=request.data['storage_depots']).last()
+                    storage_depots_id=request.data['storage_depots'], deleted = False).last()
                     get_details_stock_dest = Stock.objects.filter(hospital = self.request.user.hospital,
                         product_id=stock_mov.details_stock.product_id,
-                        storage_depots_id=stock_mov.storage_depots_dest).last()
+                        storage_depots_id=stock_mov.storage_depots_dest, deleted = False).last()
                     if not get_details_stock_dest:
                         Stock.objects.create(hospital = self.request.user.hospital,product_id=stock_mov.details_stock.product_id,product_name=stock_mov.details_stock.product_id.name,
                         storage_depots_id=stock_mov.storage_depots_dest)
                         get_details_stock_dest = Stock.objects.filter(hospital = self.request.user.hospital,
                         product_id=stock_mov.details_stock.product_id,
-                        storage_depots_id=stock_mov.storage_depots_dest).last()
+                        storage_depots_id=stock_mov.storage_depots_dest, deleted = False).last()
                         get_details_stock.qte_stock = get_details_stock.qte_stock - int(
                                 stock_mov.quantity)
                         get_details_stock.save()
@@ -7621,7 +7626,7 @@ class Stock_movementViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='close')
     def close(self, request, *args, **kwargs):
         user = self.request.user
-        get_cash = Cash.objects.filter(user_id=user.id, is_active=True).last()
+        get_cash = Cash.objects.filter(user_id=user.id, is_active=True, deleted = False).last()
         get_cash.is_active = False
         get_cash.save()
         return Response(status=status.HTTP_200_OK)
@@ -7631,7 +7636,7 @@ class Stock_movementViewSet(viewsets.ModelViewSet):
     def delete_empty(self, request, pk=None):
         supply = self.get_object()
 
-        has_lines = DetailsStock_movement.objects.filter(stock_movement=supply, hospital=request.user.hospital).exists()
+        has_lines = DetailsStock_movement.objects.filter(stock_movement=supply, hospital=request.user.hospital, deleted = False).exists()
 
         if has_lines:
             return Response(
@@ -7805,7 +7810,7 @@ class DeliveryInfoViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"title": ["This field already exists."]}
         if 'title' in data:
-            obj = DeliveryInfo.objects.filter(title__icontains=data['title'])
+            obj = DeliveryInfo.objects.filter(title__icontains=data['title'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -7884,7 +7889,7 @@ class EventInfoViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"title": ["This field already exists."]}
         if 'title' in data:
-            obj = EventInfo.objects.filter(title__icontains=data['title'])
+            obj = EventInfo.objects.filter(title__icontains=data['title'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -7963,7 +7968,7 @@ class CateringInfoViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"title": ["This field already exists."]}
         if 'title' in data:
-            obj = CateringInfo.objects.filter(title__icontains=data['title'])
+            obj = CateringInfo.objects.filter(title__icontains=data['title'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -8034,8 +8039,8 @@ class DetailsBillsIngredientViewSet(viewsets.ModelViewSet):
             # obj.save()
             # serializer = self.get_serializer(obj, many=False)
             # return Response(data=serializer.data, status=status.HTTP_201_CREATED)
-            queryset = Ingredient.objects.filter(hospital=user.hospital,translations__name__icontains=request.data['name']).last()
-            querysetCompose = ComposeIngredient.objects.filter(hospital=user.hospital,translations__name__icontains=request.data['name']).last()
+            queryset = Ingredient.objects.filter(hospital=user.hospital,translations__name__icontains=request.data['name'], deleted = False).last()
+            querysetCompose = ComposeIngredient.objects.filter(hospital=user.hospital,translations__name__icontains=request.data['name'], deleted = False).last()
             
 
             if queryset:
@@ -8044,7 +8049,7 @@ class DetailsBillsIngredientViewSet(viewsets.ModelViewSet):
                     "ingredient": int(parts[1]),
                     "hospital": user.hospital,
                 }
-                get_details = DetailsBillsIngredient.objects.filter(**filters).last()
+                get_details = DetailsBillsIngredient.objects.filter(**filters, deleted = False).last()
                 if get_details:
 
                     get_details.quantity = request.data["quantity"]
@@ -8066,7 +8071,7 @@ class DetailsBillsIngredientViewSet(viewsets.ModelViewSet):
                     "compose_ingredient": int(parts[1]),
                     "hospital": user.hospital,
                 }
-                get_details = DetailsBillsIngredient.objects.filter(**filters).last()
+                get_details = DetailsBillsIngredient.objects.filter(**filters, deleted = False).last()
                 if get_details:
 
                     get_details.quantity = request.data["quantity"]

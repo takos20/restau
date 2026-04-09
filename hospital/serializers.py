@@ -261,7 +261,7 @@ class PatientSerializer(DynamicFieldsModelSerializer):
     insurance = InsuranceSerializer(many=False)
     type_patient = Type_patientSerializer(many=False, fields=('id', 'code', 'title'))
     account_patient = serializers.SerializerMethodField()
-    balance = serializers.SerializerMethodField()
+    # balance = serializers.SerializerMethodField()
 
     class Meta:
         model = Patient
@@ -269,8 +269,8 @@ class PatientSerializer(DynamicFieldsModelSerializer):
         
     def get_account_patient(self, obj):
         return PatientAccountSerializer(obj.account_patient.filter(type_account='PREPAID'), many=True, fields=('id', 'balance')).data
-    def get_balance(self, obj):
-        return Bills.objects.filter(patient_id=obj).all().aggregate(Sum('balance'))['balance__sum']
+    # def get_balance(self, obj):
+    #     return Bills.objects.filter(patient_id=obj, deleted=False).all().aggregate(Sum('balance'))['balance__sum']
     
     # def get_account_patient(self, obj):
     #     # Utilise le cache prefetch_related si disponible
@@ -566,7 +566,7 @@ class BillsSerializer(DynamicFieldsModelSerializer):
     # def get_sum_delivery(self, obj):
     #     return DetailsBills.objects.filter(bills_id=obj).all().aggregate(Sum('delivery'))['delivery__sum']    
     def get_amount_gross(self, obj):
-        return DetailsBills.objects.filter(bills_id=obj).all().aggregate(Sum('amount_gross'))['amount_gross__sum']
+        return DetailsBills.objects.filter(bills_id=obj, deleted=False).all().aggregate(Sum('amount_gross'))['amount_gross__sum']
     # def get_patient_name(self, obj):
     #     return obj.patient.name if obj.patient else None
 
@@ -605,7 +605,7 @@ class BillsSerializerAnalysis(DynamicFieldsModelSerializer):
     #     return DetailsBills.objects.filter(bills_id=obj).all().aggregate(Sum('delivery'))['delivery__sum']
     
     def get_amount_gross(self, obj):
-        return DetailsBills.objects.filter(bills_id=obj).all().aggregate(Sum('amount_gross'))['amount_gross__sum']
+        return DetailsBills.objects.filter(bills_id=obj, deleted=False).all().aggregate(Sum('amount_gross'))['amount_gross__sum']
 
 
 class PatientSettlementSerializer(DynamicFieldsModelSerializer):

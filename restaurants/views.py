@@ -62,19 +62,21 @@ class DishViewSet(viewsets.ModelViewSet):
         return [permission() for permission in permission_classes]
 
     def create(self, request, *args, **kwargs):
+        user=self.request.user
         obj_form = DishForm(request.data)
         if obj_form.is_valid():
             obj = obj_form.save()
             # obj.hospital = self.request.user.hospital
             obj.save()
             for translate in self.request.data['name_language']:
-                get_translate = DishTranslation.objects.filter(dish_id=obj.id, language=translate['language']).last()
+                get_translate = DishTranslation.objects.filter(dish_id=obj.id, language=translate['language'], deleted = False).last()
                 if get_translate:
                     get_translate.name = translate['name']
                     get_translate.save()
                 else:
-                    DishTranslation.objects.create(user=self.request.user, dish_id=obj.id, language=translate['language'], name = translate['name'])
-
+                    DishTranslation.objects.create(user=user, dish_id=obj.id, language=translate['language'], name = translate['name'])
+            get_storage_depots = Storage_depots.objects.filter(is_default=True, hospital=user.hospital, deleted = False).last()
+            Stock.objects.create(hospital=user.hospital, deleted = False, ingredient_id=obj.id, storage_depots_id=get_storage_depots.id)
             serializer = self.get_serializer(obj, many=False)
             return Response(data=serializer.data, status=status.HTTP_201_CREATED)
         errors = {**obj_form.errors}
@@ -87,7 +89,7 @@ class DishViewSet(viewsets.ModelViewSet):
             obj = obj_form.save()
             obj.save()
             for translate in self.request.data['name_language']:
-                get_translate = DishTranslation.objects.filter(dish_id=obj.id, language=translate['language']).last()
+                get_translate = DishTranslation.objects.filter(dish_id=obj.id, language=translate['language'], deleted = False).last()
                 if get_translate:
                     get_translate.name = translate['name']
                     get_translate.save()
@@ -142,23 +144,23 @@ class DishViewSet(viewsets.ModelViewSet):
                 dbframe = empexceldata
                 data = {}
                 for dbframe in dbframe.itertuples():
-                    get_obj = Dish.objects.filter(translations__name__icontains=dbframe.Nom_fr).last()
+                    get_obj = Dish.objects.filter(translations__name__icontains=dbframe.Nom_fr, deleted = False).last()
                     if get_obj:
                         pass
                     else:
-                        get_obj = Dish.objects.filter(translations__name__icontains=dbframe.Nom_en).last()
+                        get_obj = Dish.objects.filter(translations__name__icontains=dbframe.Nom_en, deleted = False).last()
                     
                     langue = [{"name": checkContent(content=dbframe.Nom_fr), "saved": False, "language": "fr"}, {"name": checkContent(content=dbframe.Nom_en), "saved": False, "language": "en"}]
 
                     if get_obj is None:
                         if dbframe.Categorie:
-                            get_category = Category.objects.filter(code__icontains = dbframe.Categorie).last()
+                            get_category = Category.objects.filter(code__icontains = dbframe.Categorie, deleted = False).last()
                             obj = Dish.objects.create(name_language=langue, price = checkContent(content=dbframe.Prix),preparation_time = checkNumber(dbframe.Temps_preparation), category = get_category, is_delivery = checkBool(content=dbframe.Remise))
                         else:
                             obj = Dish.objects.create(name_language=langue, price = checkContent(content=dbframe.Prix), preparation_time = checkNumber(dbframe.Temps_preparation), is_delivery = checkBool(content=dbframe.Remise))
 
                         for translate in langue:
-                            get_translate = DishTranslation.objects.filter(dish_id=obj.id, language=translate['language']).last()
+                            get_translate = DishTranslation.objects.filter(dish_id=obj.id, language=translate['language'], deleted = False).last()
                             if get_translate:
                                 get_translate.name = translate['name']
                                 get_translate.save()
@@ -167,7 +169,7 @@ class DishViewSet(viewsets.ModelViewSet):
 
                     else:
                         for translate in langue:
-                            get_translate = DishTranslation.objects.filter(dish_id=get_obj.id, language=translate['language']).last()
+                            get_translate = DishTranslation.objects.filter(dish_id=get_obj.id, language=translate['language'], deleted = False).last()
                             if get_translate:
                                 get_translate.name = translate['name']
                                 get_translate.save()
@@ -183,7 +185,7 @@ class DishViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'name' in data:
-            obj = Dish.objects.filter(translations__name__icontains=data['name'])
+            obj = Dish.objects.filter(translations__name__icontains=data['name'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -197,7 +199,7 @@ class DishViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'title' in data:
-            obj = DishTranslation.objects.filter(name__icontains=data['name'])
+            obj = DishTranslation.objects.filter(name__icontains=data['name'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -312,7 +314,7 @@ class PromotionViewSet(viewsets.ModelViewSet):
             obj.hospital = self.request.user.hospital
             obj.save()
             for translate in self.request.data['name_language']:
-                get_translate = PromotionTranslation.objects.filter(hospital = self.request.user.hospital, promotion_id=obj.id, language=translate['language']).last()
+                get_translate = PromotionTranslation.objects.filter(hospital = self.request.user.hospital, promotion_id=obj.id, language=translate['language'], deleted = False).last()
                 if get_translate:
                     get_translate.name = translate['name']
                     get_translate.save()
@@ -331,7 +333,7 @@ class PromotionViewSet(viewsets.ModelViewSet):
             obj = obj_form.save()
             obj.save()
             for translate in self.request.data['name_language']:
-                get_translate = PromotionTranslation.objects.filter(hospital = self.request.user.hospital, promotion_id=obj.id, language=translate['language']).last()
+                get_translate = PromotionTranslation.objects.filter(hospital = self.request.user.hospital, promotion_id=obj.id, language=translate['language'], deleted = False).last()
                 if get_translate:
                     get_translate.name = translate['name']
                     get_translate.save()
@@ -363,7 +365,7 @@ class PromotionViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='statistics')
     def statistics(self, request, *args, **kwargs):
         # For printing results
-        dish_category = Promotion.objects.filter(hospital = self.request.user.hospital).values(type=F('name')).annotate(
+        dish_category = Promotion.objects.filter(hospital = self.request.user.hospital, deleted = False).values(type=F('name')).annotate(
             total=Count('id'))
         
 
@@ -382,7 +384,7 @@ class PromotionViewSet(viewsets.ModelViewSet):
                 dbframe = empexceldata
                 data = {}
                 for dbframe in dbframe.itertuples():
-                    get_obj = Dish.objects.filter(title__icontains=dbframe.Name).last()
+                    get_obj = Dish.objects.filter(title__icontains=dbframe.Name, deleted = False).last()
                     if get_obj:
                         get_obj.name = dbframe.Name
                         get_obj.save()
@@ -396,7 +398,7 @@ class PromotionViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'name' in data:
-            obj = Promotion.objects.filter(hospital = self.request.user.hospital, translations__name__icontains=data['name'])
+            obj = Promotion.objects.filter(hospital = self.request.user.hospital, translations__name__icontains=data['name'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -484,7 +486,7 @@ class PromotionRuleViewSet(viewsets.ModelViewSet):
                 dbframe = empexceldata
                 data = {}
                 for dbframe in dbframe.itertuples():
-                    get_obj = Dish.objects.filter(title__icontains=dbframe.Name).last()
+                    get_obj = Dish.objects.filter(title__icontains=dbframe.Name, deleted = False).last()
                     if get_obj:
                         get_obj.name = dbframe.Name
                         get_obj.save()
@@ -571,7 +573,7 @@ class PromotionActionViewSet(viewsets.ModelViewSet):
                 dbframe = empexceldata
                 data = {}
                 for dbframe in dbframe.itertuples():
-                    get_obj = Dish.objects.filter(title__icontains=dbframe.Name).last()
+                    get_obj = Dish.objects.filter(title__icontains=dbframe.Name, deleted = False).last()
                     if get_obj:
                         get_obj.name = dbframe.Name
                         get_obj.save()
@@ -763,7 +765,7 @@ class DishPreparationViewSet(viewsets.ModelViewSet):
                 dbframe = empexceldata
                 data = {}
                 for dbframe in dbframe.itertuples():
-                    get_obj = Dish.objects.filter(title__icontains=dbframe.Name).last()
+                    get_obj = Dish.objects.filter(title__icontains=dbframe.Name, deleted = False).last()
                     if get_obj:
                         get_obj.name = dbframe.Name
                         get_obj.save()
@@ -804,7 +806,7 @@ class IngredientViewSet(viewsets.ModelViewSet):
             obj = obj_form.save()
             obj.save()
             for translate in self.request.data['name_language']:
-                get_translate = IngredientTranslation.objects.filter(ingredient_id=obj.id, language=translate['language']).last()
+                get_translate = IngredientTranslation.objects.filter(ingredient_id=obj.id, language=translate['language'], deleted = False).last()
                 if get_translate:
                     get_translate.name = translate['name']
                     get_translate.save()
@@ -823,7 +825,7 @@ class IngredientViewSet(viewsets.ModelViewSet):
             obj = obj_form.save()
             obj.save()
             for translate in self.request.data['name_language']:
-                get_translate = IngredientTranslation.objects.filter(ingredient_id=obj.id, language=translate['language']).last()
+                get_translate = IngredientTranslation.objects.filter(ingredient_id=obj.id, language=translate['language'], deleted = False).last()
                 if get_translate:
                     get_translate.name = translate['name']
                     get_translate.save()
@@ -846,7 +848,7 @@ class IngredientViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'name' in data:
-            obj = Ingredient.objects.filter(translations__name__icontains=data['name'])
+            obj = Ingredient.objects.filter(translations__name__icontains=data['name'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -859,7 +861,7 @@ class IngredientViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'title' in data:
-            obj = IngredientTranslation.objects.filter(name__icontains=data['name'])
+            obj = IngredientTranslation.objects.filter(name__icontains=data['name'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -925,7 +927,7 @@ class IngredientViewSet(viewsets.ModelViewSet):
         # COMPOSE PREPARATION
         # -----------------------------
         compose_preparation = ComposePreparation.objects.filter(
-            hospital=self.request.user.hospital
+            hospital=self.request.user.hospital, deleted = False
         )
 
         if title_query:
@@ -964,18 +966,18 @@ class IngredientViewSet(viewsets.ModelViewSet):
                 dbframe = empexceldata
                 data = {}
                 for dbframe in dbframe.itertuples():
-                    get_obj = Ingredient.objects.filter(translations__name__icontains=dbframe.Nom_fr).last()
+                    get_obj = Ingredient.objects.filter(translations__name__icontains=dbframe.Nom_fr, deleted = False).last()
                     if get_obj:
                         pass
                     else:
-                        get_obj = Ingredient.objects.filter(translations__name__icontains=dbframe.Nom_en).last()                    
+                        get_obj = Ingredient.objects.filter(translations__name__icontains=dbframe.Nom_en, deleted = False).last()                    
                     langue = [{"name": checkContent(content=dbframe.Nom_fr), "saved": False, "language": "fr"}, {"name": checkContent(content=dbframe.Nom_en), "saved": False, "language": "en"}]
 
                     if get_obj is None:
                         obj = Ingredient.objects.create(name_language=langue, price_per_unit = checkNumber(content=dbframe.Prix_unit), stock_quantity = checkNumber(content=dbframe.Stock_quantity_gramme),stock_quantity_two = checkNumber(content=dbframe.Stock_quantity), unit = checkContent(content=dbframe.Unite))
 
                         for translate in langue:
-                            get_translate = IngredientTranslation.objects.filter(ingredient_id=obj.id, language=translate['language']).last()
+                            get_translate = IngredientTranslation.objects.filter(ingredient_id=obj.id, language=translate['language'], deleted = False).last()
                             if get_translate:
                                 get_translate.name = translate['name']
                                 get_translate.save()
@@ -984,7 +986,7 @@ class IngredientViewSet(viewsets.ModelViewSet):
                     
                     else:
                         for translate in langue:
-                            get_translate = IngredientTranslation.objects.filter(ingredient_id=get_obj.id, language=translate['language']).last()
+                            get_translate = IngredientTranslation.objects.filter(ingredient_id=get_obj.id, language=translate['language'], deleted = False).last()
                             if get_translate:
                                 get_translate.name = translate['name']
                                 get_translate.save()
@@ -1053,7 +1055,7 @@ class StructureArticleViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'name' in data:
-            obj = Ingredient.objects.filter(translations__name__icontains=data['name'])
+            obj = Ingredient.objects.filter(translations__name__icontains=data['name'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -1066,7 +1068,7 @@ class StructureArticleViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'title' in data:
-            obj = IngredientTranslation.objects.filter(name__icontains=data['name'])
+            obj = IngredientTranslation.objects.filter(name__icontains=data['name'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -1156,7 +1158,7 @@ class RecipesViewSet(viewsets.ModelViewSet):
     def delete_empty(self, request, pk=None):
         supply = self.get_object()
 
-        has_lines = RecipeIngredient.objects.filter(recipes=supply).exists()
+        has_lines = RecipeIngredient.objects.filter(recipes=supply, deleted = False).exists()
 
         if has_lines:
             return Response(
@@ -1186,7 +1188,7 @@ class RecipesViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'name' in data:
-            obj = Recipes.objects.filter(translations__name__icontains=data['name'])
+            obj = Recipes.objects.filter(translations__name__icontains=data['name'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -1243,14 +1245,14 @@ class ComposeIngredientViewSet(viewsets.ModelViewSet):
         user=self.request.user
         obj_form = ComposeIngredientForm(request.data)
         if obj_form.is_valid():
-            get_compose = ComposeIngredient.objects.filter(id=request.data['compose_ingredient']).last()
+            get_compose = ComposeIngredient.objects.filter(id=request.data['compose_ingredient'], deleted = False).last()
             get_compose.name_language = request.data['name_language']
             # get_compose.stock_quantity = request.data['stock_quantity']
             get_compose.total_amount = request.data['total_amount']
             if 'price_per_unit' in request.data:
                 get_compose.price_per_unit = request.data['price_per_unit']
             get_compose.save()
-            get_default_depot=Storage_depots.objects.filter(is_default=True).last()
+            get_default_depot=Storage_depots.objects.filter(hospital=user.hospital, is_default=True, deleted = False).last()
             if get_default_depot == None:
                 errors = {"error": "Pas depot de stockage par defaut"}
                 return Response(data=errors, status=status.HTTP_400_BAD_REQUEST)
@@ -1301,7 +1303,7 @@ class ComposeIngredientViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['DELETE'], url_path='delete-empty')
     def delete_empty(self, request, pk=None):
         supply = self.get_object()
-        has_lines = DetailsComposeIngredient.objects.filter(compose_ingredient=supply).exists()
+        has_lines = DetailsComposeIngredient.objects.filter(compose_ingredient=supply, deleted = False).exists()
 
         if has_lines:
             return Response(
@@ -1330,7 +1332,7 @@ class ComposeIngredientViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"name": ["This field already exists."]}
         if 'name' in data:
-            obj = ComposeIngredient.objects.filter(translations__name__icontains=data['name'])
+            obj = ComposeIngredient.objects.filter(translations__name__icontains=data['name'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -1389,7 +1391,7 @@ class ComposePreparationViewSet(viewsets.ModelViewSet):
         user=self.request.user
         obj_form = ComposePreparationForm(request.data)
         if obj_form.is_valid():
-            get_compose = ComposePreparation.objects.filter(id=request.data['compose_preparation'], hospital=user.hospital).last()
+            get_compose = ComposePreparation.objects.filter(id=request.data['compose_preparation'], hospital=user.hospital, deleted = False).last()
             get_compose.stock_quantity += float(request.data['stock_quantity'])
             get_compose.total_amount += Decimal(request.data['total_amount'])
             get_compose.save()
@@ -1435,7 +1437,7 @@ class ComposePreparationViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['DELETE'], url_path='delete-empty')
     def delete_empty(self, request, pk=None):
         compose = self.get_object()
-        has_lines = DetailsComposePreparation.objects.filter(compose_preparation=compose, hospital=request.user.hospital,).exists()
+        has_lines = DetailsComposePreparation.objects.filter(compose_preparation=compose, hospital=request.user.hospital, deleted = False).exists()
 
         if has_lines:
             return Response(
@@ -1466,7 +1468,7 @@ class ComposePreparationViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"title": ["This field already exists."]}
         if 'title' in data:
-            obj = Recipes.objects.filter(title__icontains=data['title'])
+            obj = Recipes.objects.filter(title__icontains=data['title'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -1478,7 +1480,7 @@ class ComposePreparationViewSet(viewsets.ModelViewSet):
     def check_current(self, request, *args, **kwargs):
         user_hospital = self.request.user.hospital
         if user_hospital:
-            recipe = RecipeIngredient.objects.filter(hospital=user_hospital).order_by('dish_id').distinct('dish_id')
+            recipe = RecipeIngredient.objects.filter(hospital=user_hospital, deleted = False).order_by('dish_id').distinct('dish_id')
         else:
 
             recipe = RecipeIngredient.objects.order_by('dish_id').distinct('dish_id')
@@ -1530,9 +1532,9 @@ class RecipeIngredientViewSet(viewsets.ModelViewSet):
             parts = request.data['item_uid'].split('-')
             if parts[0] == 'ingredient':
 
-                get_recipe=RecipeIngredient.objects.filter(dish_id=request.data['dish'], recipes= request.data['recipes'], ingredient_id=int(parts[1])).last()
+                get_recipe=RecipeIngredient.objects.filter(dish_id=request.data['dish'], recipes= request.data['recipes'], ingredient_id=int(parts[1]), deleted = False).last()
             else:
-                get_recipe=RecipeIngredient.objects.filter(dish_id=request.data['dish'], recipes= request.data['recipes'], compose_ingredient_id=int(parts[1])).last()
+                get_recipe=RecipeIngredient.objects.filter(dish_id=request.data['dish'], recipes= request.data['recipes'], compose_ingredient_id=int(parts[1]), deleted = False).last()
 
             if get_recipe:
                 get_recipe.quantity=request.data['quantity']
@@ -1544,13 +1546,13 @@ class RecipeIngredientViewSet(viewsets.ModelViewSet):
                 obj.save()
             
             if parts[0] == 'ingredient':
-                get_ingredient = Ingredient.objects.filter(id=int(parts[1])).last()
+                get_ingredient = Ingredient.objects.filter(id=int(parts[1]), deleted = False).last()
                 price_per_unit = get_ingredient.price_per_unit
             else:
                 price_per_unit = 0
 
-            get_ingredient = Ingredient.objects.filter(id=int(parts[1])).last()
-            get_recipes = Recipes.objects.filter(id=request.data['recipes']).last()
+            get_ingredient = Ingredient.objects.filter(id=int(parts[1]), deleted = False).last()
+            get_recipes = Recipes.objects.filter(id=request.data['recipes'], deleted = False).last()
             get_recipes.dish_id = request.data['dish']
             get_recipes.total_amount += float(request.data['quantity']) * float(price_per_unit)
             get_recipes.save()
@@ -1665,7 +1667,7 @@ class RecipeIngredientViewSet(viewsets.ModelViewSet):
     def delete_empty(self, request, pk=None):
         supply = self.get_object()
 
-        has_lines = RecipeIngredient.objects.filter(dish=supply).exists()
+        has_lines = RecipeIngredient.objects.filter(dish=supply, deleted = False).exists()
 
         if has_lines:
             return Response(
@@ -1694,7 +1696,7 @@ class RecipeIngredientViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"title": ["This field already exists."]}
         if 'title' in data:
-            obj = RecipeIngredient.objects.filter(title__icontains=data['title'])
+            obj = RecipeIngredient.objects.filter(title__icontains=data['title'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -1739,7 +1741,7 @@ class DetailsComposeIngredientViewSet(viewsets.ModelViewSet):
         user=request.user
         
         if obj_form.is_valid():
-            get_recipe=DetailsComposeIngredient.objects.filter(compose_ingredient = request.data['compose_ingredient'], ingredient_id=request.data['ingredient']).last()
+            get_recipe=DetailsComposeIngredient.objects.filter(compose_ingredient = request.data['compose_ingredient'], ingredient_id=request.data['ingredient'], deleted = False).last()
 
             if get_recipe:
                 get_recipe.quantity=request.data['quantity']
@@ -1750,9 +1752,9 @@ class DetailsComposeIngredientViewSet(viewsets.ModelViewSet):
                 obj = obj_form.save()
                 obj.compose_ingredient_id = request.data['compose_ingredient']
                 obj.save()
-            get_obj = ComposeIngredient.objects.filter(id = request.data['compose_ingredient']).last()
+            get_obj = ComposeIngredient.objects.filter(id = request.data['compose_ingredient'], deleted = False).last()
             for translate in self.request.data['name_language']:
-                get_translate = ComposeIngredientTranslation.objects.filter(compose_ingredient_id=get_obj.id, language=translate['language']).last()
+                get_translate = ComposeIngredientTranslation.objects.filter(compose_ingredient_id=get_obj.id, language=translate['language'], deleted = False).last()
                 if get_translate:
                     get_translate.name = translate['name']
                     get_translate.save()
@@ -1760,18 +1762,18 @@ class DetailsComposeIngredientViewSet(viewsets.ModelViewSet):
                     ComposeIngredientTranslation.objects.create(user=self.request.user, compose_ingredient_id=get_obj.id, language=translate['language'], name = translate['name'])
 
         
-            get_ingredient = Ingredient.objects.filter(id=request.data['ingredient']).last()
+            get_ingredient = Ingredient.objects.filter(id=request.data['ingredient'], deleted = False).last()
             get_obj.total_amount += float(Decimal(request.data['quantity']) * get_ingredient.price_per_unit)
             if 'price_per_unit' in request.data:
                 get_obj.price_per_unit = request.data['price_per_unit']
             if 'stock_quantity' in request.data:
-                get_default_depot=Storage_depots.objects.filter(is_default=True).last()
+                get_default_depot=Storage_depots.objects.filter(is_default=True, deleted = False).last()
                 if get_default_depot == None:
                     errors = {"error": "Pas depot de stockage par defaut"}
                     return Response(data=errors, status=status.HTTP_400_BAD_REQUEST)
                 else:
                     get_stock = Stock.objects.filter(hospital=user.hospital, compose_ingredient_id=get_obj.id,
-                            storage_depots_id=get_default_depot.id
+                            storage_depots_id=get_default_depot.id, deleted = False
                         ).last()
                     if get_stock:
                         get_stock.quantity=request.data['stock_quantity']
@@ -1821,7 +1823,7 @@ class DetailsComposeIngredientViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"title": ["This field already exists."]}
         if 'title' in data:
-            obj = RecipeIngredient.objects.filter(title__icontains=data['title'])
+            obj = RecipeIngredient.objects.filter(title__icontains=data['title'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -1880,7 +1882,7 @@ class DetailsComposePreparationViewSet(viewsets.ModelViewSet):
         user=request.user
         
         if obj_form.is_valid():
-            get_recipe=DetailsComposePreparation.objects.filter(hospital=user.hospital, compose_preparation = request.data['compose_preparation'], ingredient_id=request.data['ingredient'], user=user).last()
+            get_recipe=DetailsComposePreparation.objects.filter(hospital=user.hospital, compose_preparation = request.data['compose_preparation'], ingredient_id=request.data['ingredient'], user=user, deleted = False).last()
 
             if get_recipe:
                 get_recipe.quantity=request.data['quantity']
@@ -1892,9 +1894,9 @@ class DetailsComposePreparationViewSet(viewsets.ModelViewSet):
                 obj.compose_ingredient_id = request.data['compose_ingredient']
                 obj.hospital = self.request.user.hospital
                 obj.save()
-            get_obj = ComposePreparation.objects.filter(id = request.data['compose_preparation'], user_id=request.user.id, hospital=user.hospital).last()
+            get_obj = ComposePreparation.objects.filter(id = request.data['compose_preparation'], user_id=request.user.id, hospital=user.hospital, deleted = False).last()
             for translate in get_obj.compose_ingredient.name_language:
-                get_translate = ComposePreparationTranslation.objects.filter(hospital = self.request.user.hospital, compose_preparation_id=get_obj.id, language=translate['language']).last()
+                get_translate = ComposePreparationTranslation.objects.filter(hospital = self.request.user.hospital, compose_preparation_id=get_obj.id, language=translate['language'], deleted = False).last()
                 if get_translate:
                     get_translate.name = translate['name']
                     get_translate.save()
@@ -1903,7 +1905,7 @@ class DetailsComposePreparationViewSet(viewsets.ModelViewSet):
                     ComposePreparationTranslation.objects.create(hospital = self.request.user.hospital, user=self.request.user, compose_preparation_id=get_obj.id, language=translate['language'], name = name)
 
         
-            get_ingredient = Ingredient.objects.filter(id=request.data['ingredient']).last()
+            get_ingredient = Ingredient.objects.filter(id=request.data['ingredient'], deleted = False).last()
             get_obj.total_amount += float(Decimal(request.data['quantity']) * get_ingredient.price_per_unit)
             if 'price_per_unit' in request.data:
                 get_obj.price_per_unit = request.data['price_per_unit']
@@ -1949,7 +1951,7 @@ class DetailsComposePreparationViewSet(viewsets.ModelViewSet):
     def delete_empty(self, request, pk=None):
         supply = self.get_object()
 
-        has_lines = RecipeIngredient.objects.filter(dis=supply, hospital=request.user.hospital,).exists()
+        has_lines = RecipeIngredient.objects.filter(dis=supply, hospital=request.user.hospital, deleted = False).exists()
 
         if has_lines:
             return Response(
@@ -1975,7 +1977,7 @@ class DetailsComposePreparationViewSet(viewsets.ModelViewSet):
         data = request.data
         errors = {"title": ["This field already exists."]}
         if 'title' in data:
-            obj = RecipeIngredient.objects.filter(title__icontains=data['title'])
+            obj = RecipeIngredient.objects.filter(title__icontains=data['title'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -1987,7 +1989,7 @@ class DetailsComposePreparationViewSet(viewsets.ModelViewSet):
     def check_current(self, request, *args, **kwargs):
         user_hospital = self.request.user.hospital
         if user_hospital:
-            recipe = RecipeIngredient.objects.filter(hospital=user_hospital).order_by('dish_id').distinct('dish_id')
+            recipe = RecipeIngredient.objects.filter(hospital=user_hospital, deleted = False).order_by('dish_id').distinct('dish_id')
         else:
 
             recipe = RecipeIngredient.objects.order_by('dish_id').distinct('dish_id')
@@ -1999,7 +2001,7 @@ class DetailsComposePreparationViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['POST'], url_path='create', permission_classes=[AllowAny])
     def check_create(self, request, *args, **kwargs):
         user = self.request.user
-        get_obj = ComposePreparation.objects.filter(compose_ingredient_id = request.data['compose_ingredient']).last()
+        get_obj = ComposePreparation.objects.filter(compose_ingredient_id = request.data['compose_ingredient'], deleted = False).last()
         if get_obj:
             details = DetailsComposeIngredient.objects.filter(compose_ingredient_id = request.data['compose_ingredient']).filter(deleted=False)
             for detail in details:
@@ -2018,7 +2020,7 @@ class DetailsComposePreparationViewSet(viewsets.ModelViewSet):
                 else:
                     cost = 0
 
-                get_detail_preparation = DetailsComposePreparation.objects.filter(hospital=user.hospital,compose_preparation_id=get_obj.id, compose_ingredient_id=request.data['compose_ingredient'],ingredient=detail.ingredient).last()
+                get_detail_preparation = DetailsComposePreparation.objects.filter(hospital=user.hospital,compose_preparation_id=get_obj.id, compose_ingredient_id=request.data['compose_ingredient'],ingredient=detail.ingredient, deleted = False).last()
                 if get_detail_preparation:
                     get_detail_preparation.quantity += qty
                     get_detail_preparation.cost += cost
@@ -2038,7 +2040,7 @@ class DetailsComposePreparationViewSet(viewsets.ModelViewSet):
                 )
 
             for translate in compose.compose_ingredient.name_language:
-                get_translate = ComposePreparationTranslation.objects.filter(hospital = user.hospital, compose_preparation_id=compose.id, language=translate['language']).last()
+                get_translate = ComposePreparationTranslation.objects.filter(hospital = user.hospital, compose_preparation_id=compose.id, language=translate['language'], deleted = False).last()
                 if get_translate:
                     get_translate.name = translate['name']
                     get_translate.save()
@@ -2064,7 +2066,7 @@ class DetailsComposePreparationViewSet(viewsets.ModelViewSet):
                 else:
                     cost = 0
 
-                get_detail_preparation = DetailsComposePreparation.objects.filter(hospital=user.hospital,compose_preparation_id=compose.id,compose_ingredient_id=request.data['compose_ingredient'], ingredient=detail.ingredient).last()
+                get_detail_preparation = DetailsComposePreparation.objects.filter(hospital=user.hospital,compose_preparation_id=compose.id,compose_ingredient_id=request.data['compose_ingredient'], ingredient=detail.ingredient, deleted = False).last()
                 if get_detail_preparation:
                     get_detail_preparation.quantity = qty
                     get_detail_preparation.cost = cost
