@@ -783,6 +783,8 @@ class ComposeIngredientSerializer(DynamicFieldsModelSerializer):
     # category = CategorySerializer()
     uid = serializers.SerializerMethodField()
     name = serializers.SerializerMethodField()
+    stock = serializers.SerializerMethodField()
+    stock_by_depot = serializers.SerializerMethodField()
 
     class Meta:
         model = ComposeIngredient
@@ -801,6 +803,18 @@ class ComposeIngredientSerializer(DynamicFieldsModelSerializer):
         }
 
         return translations.get(lang) or translations.get("fr")
+    
+    def get_stock_by_depot(self, obj):
+        request = self.context.get('request', None)
+        hospital = request.user.hospital
+        stocks = obj.stocks.filter(storage_depots__hospital=hospital).select_related("storage_depots")
+        return StockByDepotSerializer(stocks, many=True).data
+
+    def get_stock(self, obj):
+        request = self.context.get('request', None)
+        hospital = request.user.hospital
+        total = obj.stocks.filter(storage_depots__hospital=hospital).aggregate(total=Sum("quantity"))["total"]
+        return total or 0
     
 class StockSerializer(DynamicFieldsModelSerializer):
     hospital = HospitalSerializer(many=False, fields=('id', 'name'))
@@ -922,7 +936,7 @@ class DeliveryInfoSerializer(DynamicFieldsModelSerializer):
 class DetailsBillsIngredientSerializer(DynamicFieldsModelSerializer):
     details_bills = DetailsBillsSerializer(many=False, fields=('id',)) 
     ingredient = IngredientSerializer(many=False, fields=('id', 'name', 'price_per_unit'))
-    compose_ingredient = ComposeIngredientSerializer()
+    compose_ingredient = ComposeIngredientSerializer(many=False, fields=('id', 'name'))
     hospital = HospitalSerializer(many=False, fields=('id', 'name'))
      
     class Meta:
@@ -930,7 +944,7 @@ class DetailsBillsIngredientSerializer(DynamicFieldsModelSerializer):
         fields = '__all__'
 class MovementStockSerializer(DynamicFieldsModelSerializer):
     ingredient = IngredientSerializer(many=False, fields=('id', 'name'))
-    compose_ingredient = ComposeIngredientSerializer()
+    compose_ingredient = ComposeIngredientSerializer(many=False, fields=('id', 'name'))
     hospital = HospitalSerializer(many=False, fields=('id', 'name'))
      
     class Meta:
@@ -1002,7 +1016,7 @@ class RecipeIngredientSerializer(DynamicFieldsModelSerializer):
     #         context={'request': request}
     #     ).data
 class DetailsComposeIngredientSerializer(DynamicFieldsModelSerializer):
-    compose_ingredient = ComposeIngredientSerializer()
+    compose_ingredient = ComposeIngredientSerializer(many=False, fields=('id', 'name'))
     # ingredient = IngredientSerializer()
     ingredient = serializers.SerializerMethodField()
     cost = serializers.FloatField(read_only=True)

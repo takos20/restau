@@ -4,7 +4,7 @@ from hospital.forms import RecipesForm
 from rest_framework import viewsets
 
 from hospital.helpers import checkBool, checkContent, checkNumber, destocker
-from hospital.models import Category, CategoryTranslation, ComposeIngredient, ComposeIngredientTranslation, ComposePreparation, ComposePreparationTranslation, DetailsComposeIngredient, DetailsComposePreparation, Dish, DishPreparation, DishTranslation, Ingredient, IngredientTranslation, Promotion, PromotionAction, PromotionRule, PromotionTranslation, RecipeIngredient, Recipes, StructureArticle, User
+from hospital.models import Category, CategoryTranslation, ComposeIngredient, ComposeIngredientTranslation, ComposePreparation, ComposePreparationTranslation, DetailsComposeIngredient, DetailsComposePreparation, Dish, DishPreparation, DishTranslation, Ingredient, IngredientTranslation, Promotion, PromotionAction, PromotionRule, PromotionTranslation, RecipeIngredient, Recipes, Stock, Storage_depots, StructureArticle, User
 from hospital.serializers import ComposeIngredientSerializer, ComposePreparationSerializer, DetailsComposeIngredientSerializer, DetailsComposePreparationSerializer, DishSerializer, IngredientSerializer, PromotionActionSerializer, PromotionRuleSerializer, PromotionSerializer, RecipeIngredientSerializer, DishPreparationSerializer, RecipesSerializer, StructureArticleSerializer
 from restaurants.filters import ComposeIngredientFilter, ComposePreparationFilter, DetailsComposeIngredientFilter, DetailsComposePreparationFilter, DishFilter, DishPreparationFilter, IngredientFilter, PromotionActionFilter, PromotionFilter, PromotionRuleFilter, RecipeIngredientFilter, StructureArticleFilter
 from restaurants.forms import ComposeIngredientForm, ComposePreparationForm, DetailsComposeIngredientForm, DetailsComposePreparationForm, DishForm, DishPreparationForm, IngredientForm, PromotionActionForm, PromotionForm, PromotionRuleForm, RecipeIngredientForm, StructureArticleForm
@@ -152,9 +152,7 @@ class DishViewSet(viewsets.ModelViewSet):
 
                     if get_obj is None:
                         if dbframe.Categorie:
-                            print(dbframe.Categorie)
                             get_category = Category.objects.filter(code__icontains = dbframe.Categorie).last()
-                            print(get_category)
                             obj = Dish.objects.create(name_language=langue, price = checkContent(content=dbframe.Prix),preparation_time = checkNumber(dbframe.Temps_preparation), category = get_category, is_delivery = checkBool(content=dbframe.Remise))
                         else:
                             obj = Dish.objects.create(name_language=langue, price = checkContent(content=dbframe.Prix), preparation_time = checkNumber(dbframe.Temps_preparation), is_delivery = checkBool(content=dbframe.Remise))
@@ -1247,11 +1245,20 @@ class ComposeIngredientViewSet(viewsets.ModelViewSet):
         if obj_form.is_valid():
             get_compose = ComposeIngredient.objects.filter(id=request.data['compose_ingredient']).last()
             get_compose.name_language = request.data['name_language']
-            get_compose.stock_quantity = request.data['stock_quantity']
+            # get_compose.stock_quantity = request.data['stock_quantity']
             get_compose.total_amount = request.data['total_amount']
             if 'price_per_unit' in request.data:
                 get_compose.price_per_unit = request.data['price_per_unit']
             get_compose.save()
+            get_default_depot=Storage_depots.objects.filter(is_default=True).last()
+            if get_default_depot == None:
+                errors = {"error": "Pas depot de stockage par defaut"}
+                return Response(data=errors, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                Stock.objects.create(hospital=user.hospital, compose_ingredient_id=request.data['compose_ingredient'],
+                        storage_depots_id=get_default_depot.id, quantity=request.data['stock_quantity']
+                    ).last()
+            
             get_ingredient = DetailsComposeIngredient.objects.filter(compose_ingredient=get_compose).filter(deleted=False)
             # for ingredient in get_ingredient:
             #     destocker(ingredient.ingredient, ingredient.quantity, get_ingredient.id, hospital = user.hospital, source="SUP DISH")
@@ -1743,7 +1750,7 @@ class DetailsComposeIngredientViewSet(viewsets.ModelViewSet):
                 obj = obj_form.save()
                 obj.compose_ingredient_id = request.data['compose_ingredient']
                 obj.save()
-            get_obj = ComposeIngredient.objects.filter(id = request.data['compose_ingredient'], user_id=request.user.id).last()
+            get_obj = ComposeIngredient.objects.filter(id = request.data['compose_ingredient']).last()
             for translate in self.request.data['name_language']:
                 get_translate = ComposeIngredientTranslation.objects.filter(compose_ingredient_id=get_obj.id, language=translate['language']).last()
                 if get_translate:
@@ -1758,10 +1765,23 @@ class DetailsComposeIngredientViewSet(viewsets.ModelViewSet):
             if 'price_per_unit' in request.data:
                 get_obj.price_per_unit = request.data['price_per_unit']
             if 'stock_quantity' in request.data:
-                get_obj.stock_quantity = request.data['stock_quantity']
+                get_default_depot=Storage_depots.objects.filter(is_default=True).last()
+                if get_default_depot == None:
+                    errors = {"error": "Pas depot de stockage par defaut"}
+                    return Response(data=errors, status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    get_stock = Stock.objects.filter(hospital=user.hospital, compose_ingredient_id=get_obj.id,
+                            storage_depots_id=get_default_depot.id
+                        ).last()
+                    if get_stock:
+                        get_stock.quantity=request.data['stock_quantity']
+                        get_stock.save()
+                    else:
+                        Stock.objects.create(hospital=user.hospital, compose_ingredient_id=get_obj.id,storage_depots_id=get_default_depot.id, quantity=request.data['stock_quantity'])
+                # get_obj.stock_quantity = request.data['stock_quantity']
             if 'unit' in request.data:
                 get_obj.unit = request.data['unit']
-            get_obj.user = user
+            # get_obj.user = user
             get_obj.name_language = request.data['name_language']
             get_obj.save()
             serializer = self.get_serializer(obj, many=False)

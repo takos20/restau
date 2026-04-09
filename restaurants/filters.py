@@ -42,6 +42,8 @@ class ComposeIngredientFilter(django_filters.FilterSet):
         model = ComposeIngredient
         fields = {'id': ['exact']}
 
+    
+
 
 class PromotionFilter(django_filters.FilterSet):
     is_shared = django_filters.BooleanFilter(lookup_expr='exact')

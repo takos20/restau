@@ -8,6 +8,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 # from django.utils.translation import ugettext_lazy as _
+import math
 from io import BytesIO
 from xhtml2pdf import pisa
 from decimal import Decimal
@@ -19,7 +20,7 @@ from hospital.forms import DetailsBillsIngredientForm, DetailsInventoryForm, Det
     CashForm, Cash_movementForm, CategoryForm,\
     SuppliesForm, SuppliersForm, DetailsSuppliesForm, BillsForm, DetailsBillsForm,PatientSettlementForm, \
     InventoryForm
-from hospital.models import CategoryTranslation, ComposeIngredient, ComposePreparation, DetailsBillsIngredient, DetailsComposeIngredient, DetailsStock_movement, DishPreparation, DishTranslation, ExtendedPermission, DetailsPatientAccount, ExtendedGroup, Ingredient, MovementStock, PatientAccount, RecipeIngredient, District, Insurance, Stock, Storage_depots, Type_patient, User, Hospital, Patient, \
+from hospital.models import CategoryTranslation, ComposeIngredient, ComposePreparation, DetailsBillsIngredient, DetailsComposeIngredient, DetailsStock_movement, DishPreparation, DishTranslation, ExtendedPermission, DetailsPatientAccount, ExtendedGroup, Ingredient, MovementStock, PatientAccount, RecipeIngredient, District, Insurance, Stock, Storage_depots, StructureArticle, Type_patient, User, Hospital, Patient, \
     Expenses_nature,  Cash, Cash_movement, Category, Supplies, Suppliers, \
     DetailsSupplies, Bills, DetailsBills,PatientSettlement, Stock_movement, \
     Inventory, DetailsInventory, City, Region, \
@@ -2634,11 +2635,17 @@ class SuppliesViewSet(viewsets.ModelViewSet):
     def peremption(self, request, *args, **kwargs):
         user=self.request.user
         get_stock = Stock.objects.filter(id=request.data['detail_stock'],hospital = user.hospital, storage_depots_id=request.data['storage_depots']).last()
+        
         get_stock.quantity += Decimal(request.data['quantity'])
         get_stock.save()
-        message= f"Une opération d’approvisionnement a été effectuée suite au constat d’un stock négatif de l'ingredient {get_stock.ingredient}."
-        save_mvt_entry = Supplies.objects.create(hospital = user.hospital, additional_info=message, storage_depots_id=request.data['storage_depots'], suppliers_id=request.data['suppliers'])
-        DetailsSupplies.objects.create(hospital = user.hospital, supplies_id=save_mvt_entry.id, ingredient_id=get_stock.ingredient.id, quantity=request.data['quantity'])
+        if get_stock.ingredient:
+            message= f"Une opération d’approvisionnement a été effectuée suite au constat d’un stock négatif de l'ingredient {get_stock.ingredient}."
+            save_mvt_entry = Supplies.objects.create(hospital = user.hospital, additional_info=message, storage_depots_id=request.data['storage_depots'], suppliers_id=request.data['suppliers'])
+            DetailsSupplies.objects.create(hospital = user.hospital, supplies_id=save_mvt_entry.id, ingredient_id=get_stock.ingredient.id, quantity=request.data['quantity'])
+        else:
+            get_stock = ComposeIngredient.objects.filter(id=get_stock.compose_ingredient.id).last()
+            get_stock.stock_quantity += float(request.data['quantity'])
+            get_stock.save()        
             
         return Response(status=status.HTTP_200_OK)
 
@@ -2697,6 +2704,7 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                 detailsBills.user_id = user.id
                 detailsBills.hospital = user.hospital
                 detailsBills.storage_depots_id = request.data['storage_depots']
+                get_price_dish = StructureArticle.objects.filter(hospital = user.hospital, dish_id = detailsBills.dish.id).filter(deleted=False).last()
 
                 
                 if request.data['cash']:
@@ -2763,10 +2771,32 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                             detailsBills.timeAt = time.strftime("%H:%M:%S", time.localtime())
                             detailsBills.save()
                             
+                            # if int(get_price_dish.price) == int(request.data['pun']):
+                                
+                            # details = DetailsComposeIngredient.objects.filter(compose_ingredient_id = request.data['compose_ingredient']).filter(deleted=False)
+                            # for detail in details:
+                            #     # qty = (request.data['stock_quantity'] * detail.quantity) / detail.compose_ingredient.stock_quantity
+
+                            #     stock_quantity = Decimal(request.data['stock_quantity'])
+
+                            #     qty = (
+                            #         stock_quantity
+                            #         * Decimal(detail.quantity)
+                            #         / Decimal(detail.compose_ingredient.stock_quantity)
+                            #     )
+                            #     if detail.ingredient.price_per_unit:
+
+                            #         cost = qty * detail.ingredient.price_per_unit
+                            #     else:
+                            #         cost = 0
                             recipes = RecipeIngredient.objects.filter(hospital = user.hospital, dish_id = detailsBills.dish.id).filter(deleted=False)
                             if recipes:
                                 for recipe in recipes:
-                                    total_quantity = int(request.data['quantity_served']) * int(recipe.quantity)
+                                    if int(get_price_dish.price) == int(request.data['pun']):
+                                        new_quantity = recipe.quantity
+                                    else:
+                                        new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price))
+                                    total_quantity = int(request.data['quantity_served']) * int(new_quantity)
                                     if recipe.ingredient:
                                         if recipe.ingredient.price_per_unit:
                                             price = recipe.ingredient.price_per_unit
@@ -2785,6 +2815,13 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                 detailsBills.margin = float(detailsBills.amount_net) - float(total['total_amount__sum'])
                                 detailsBills.save()
                                 # save_bills(get_bills=bills, request=request)
+                                serializer = self.get_serializer(detailsBills, many=False)
+                                content = {
+                                    'data': serializer.data,
+                                    'reduction': 0
+                                }
+                                return Response(data=content, status=status.HTTP_201_CREATED)
+                            else:
                                 serializer = self.get_serializer(detailsBills, many=False)
                                 content = {
                                     'data': serializer.data,
@@ -2827,7 +2864,11 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                         recipes = RecipeIngredient.objects.filter(dish_id = detailsBills.dish.id).filter(deleted=False)
                         if recipes:
                             for recipe in recipes:
-                                total_quantity = int(request.data['quantity_served']) * int(recipe.quantity)
+                                if int(get_price_dish.price) == int(request.data['pun']):
+                                    new_quantity = recipe.quantity 
+                                else:
+                                    new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price))
+                                total_quantity = int(request.data['quantity_served']) * int(new_quantity)
                                 if recipe.ingredient:
                                     if recipe.ingredient.price_per_unit:
                                         price = recipe.ingredient.price_per_unit
@@ -2853,8 +2894,7 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                             }
                             return Response(data=content, status=status.HTTP_201_CREATED)
                         else:
-                            errors = {"ingredient": ["No ingredient related to the dish."]}
-                            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+                            pass
                     else:
                         get_details = DetailsBills.objects.filter(hospital=user.hospital,dish_id=request.data['dish'],
                                                                 cash_id=get_cash.id, bills=request.data['bills'],
@@ -2862,12 +2902,19 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
 
                         if get_details:
                             total = DetailsBillsIngredient.objects.filter(details_bills_id=get_details.id,hospital=user.hospital).aggregate(Sum('total_amount'))
+                            if total:
+                                cost_production = total['total_amount__sum']
+                                margin=get_details.margin = detailsBills.amount_net - total['total_amount__sum']
+                            else:
+                                cost_production=0
+                                margin=0
+
                             get_details.quantity_served = request.data['quantity_served']
                             get_details.pub = request.data['pub']
                             get_details.pun = request.data['pun']
-                            get_details.cost_production = total['total_amount__sum']
+                            get_details.cost_production=cost_production
                             get_details.amount_net = request.data['amount_net']
-                            get_details.margin = detailsBills.amount_net - total['total_amount__sum']
+                            get_details.margin=margin
                             get_details.amount_gross = request.data['amount_gross']
                             get_details.save()
                             
@@ -2937,7 +2984,11 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                 recipes = RecipeIngredient.objects.filter(dish_id = detailsBills.dish.id).filter(deleted=False)
                                 if recipes:
                                     for recipe in recipes:
-                                        total_quantity = int(request.data['quantity_served']) * int(recipe.quantity)
+                                        if int(get_price_dish.price) == int(request.data['pun']):
+                                            new_quantity = recipe.quantity
+                                        else:
+                                            new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price))
+                                        total_quantity = int(request.data['quantity_served']) * int(new_quantity)
                                         if recipe.ingredient:
                                             if recipe.ingredient.price_per_unit:
                                                 price = recipe.ingredient.price_per_unit
@@ -2963,8 +3014,12 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                     }
                                     return Response(data=content, status=status.HTTP_201_CREATED)
                                 else:
-                                    errors = {"ingredient": ["No ingredient related to the dish."]}
-                                    return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+                                    serializer = self.get_serializer(detailsBills, many=False)
+                                    content = {
+                                        'data': serializer.data,
+                                        'reduction': 0
+                                    }
+                                    return Response(data=content, status=status.HTTP_201_CREATED)
                             elif result == True and cummulative == False:
                                 detailsBills.cash_id = get_cash.id
                                 detailsBills.timeAt = time.strftime("%H:%M:%S", time.localtime())
@@ -2973,7 +3028,11 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                 recipes = RecipeIngredient.objects.filter(dish_id = detailsBills.dish.id).filter(deleted=False)
                                 if recipes:
                                     for recipe in recipes:
-                                        total_quantity = int(request.data['quantity_served']) * int(recipe.quantity)
+                                        if int(get_price_dish.price) == int(request.data['pun']):
+                                            new_quantity = recipe.quantity
+                                        else:
+                                            new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price))
+                                        total_quantity = int(request.data['quantity_served']) * int(new_quantity)
                                         if recipe.ingredient:
                                             if recipe.ingredient.price_per_unit:
                                                 price = recipe.ingredient.price_per_unit
@@ -2999,8 +3058,12 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                     }
                                     return Response(data=content, status=status.HTTP_201_CREATED)
                                 else:
-                                    errors = {"ingredient": ["No ingredient related to the dish."]}
-                                    return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+                                    serializer = self.get_serializer(detailsBills, many=False)
+                                    content = {
+                                        'data': serializer.data,
+                                        'reduction': 0
+                                    }
+                                    return Response(data=content, status=status.HTTP_201_CREATED)
                             else:
                                 if user.hospital.rules_reduction and detailsBills.dish.is_delivery == True and user.hospital.use_delivery == True:
                                     rules = normalize_rules(user.hospital.rules_reduction)
@@ -3039,11 +3102,14 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                 detailsBills.cash_id = get_cash.id
                                 detailsBills.timeAt = time.strftime("%H:%M:%S", time.localtime())
                                 detailsBills.save()
-                                
                                 recipes = RecipeIngredient.objects.filter(dish_id = detailsBills.dish.id).filter(deleted=False)
                                 if recipes:
                                     for recipe in recipes:
-                                        total_quantity = int(request.data['quantity_served']) * int(recipe.quantity)
+                                        if int(get_price_dish.price) == int(request.data['pun']):
+                                            new_quantity = recipe.quantity
+                                        else:
+                                            new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price))
+                                        total_quantity = int(request.data['quantity_served']) * int(new_quantity)
                                         
                                         if recipe.ingredient:
                                             if recipe.ingredient.price_per_unit:
@@ -3069,8 +3135,12 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                     }
                                     return Response(data=content, status=status.HTTP_201_CREATED)
                                 else:
-                                    errors = {"ingredient": ["No ingredient related to the dish."]}
-                                    return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+                                    serializer = self.get_serializer(detailsBills, many=False)
+                                    content = {
+                                        'data': serializer.data,
+                                        'reduction': reduction
+                                    }
+                                    return Response(data=content, status=status.HTTP_201_CREATED)
                                 
             
                 else:
@@ -3827,7 +3897,7 @@ class BillViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['POST'], url_path='verify_permission')
     def verify_permission(self, request, *args, **kwargs):
 
-        get_user = User.objects.filter(username=request.data['username']).last()
+        get_user = User.objects.filter(username=request.data['username'], type='RESPONSIBLE').last()
         if get_user.check_password(request.data['password']):
             return Response(status=status.HTTP_200_OK)
 

@@ -807,7 +807,7 @@ class Stock_movement(SyncBaseModel):
     def _generate_code(self):
         current_year = datetime.date.today().year
         last = Stock_movement.objects.filter(code__startswith=f"STM-{current_year}") \
-            .order_by('-id').first()
+            .order_by('-code').first()
         
         if last and last.code:
             try:
@@ -891,7 +891,7 @@ class Bills(SyncBaseModel):
 
         while True:
             last = Bills.objects.filter(code__startswith=f"FAC-{current_year}") \
-                                .order_by('-id').first()
+                                .order_by('-code').first()
             if last and last.code:
                 try:
                     last_number = int(last.code.split('-')[-1])
@@ -1181,7 +1181,7 @@ class Stock(SyncBaseModel):
     is_shared = models.BooleanField(default=False, null=True)  # Partagé entre structures
     hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE, null=True)
     storage_depots = models.ForeignKey(Storage_depots, on_delete=models.CASCADE, null=True, related_name="stocks")
-    compose_ingredient = models.ForeignKey(ComposeIngredient, on_delete=models.CASCADE, null=True)
+    compose_ingredient = models.ForeignKey(ComposeIngredient, on_delete=models.CASCADE, null=True, related_name="stocks")
     ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE, null=True, related_name="stocks")
     quantity = models.DecimalField(max_digits=12, decimal_places=3, default=Decimal('0.000'))
     quantity_two = models.DecimalField(max_digits=12, decimal_places=3, default=Decimal('0.000'))
@@ -1339,7 +1339,6 @@ class DetailsComposeIngredient(SyncBaseModel):
 
     
     class Meta:
-        unique_together = ('compose_ingredient','ingredient')
         db_table = 'deyails_compose_ingredient'
         ordering = ('-createdAt',)
 
@@ -1447,7 +1446,7 @@ class Inventory(SyncBaseModel):
     def _generate_code(self):
         current_year = datetime.date.today().year
         last = Inventory.objects.filter(code__startswith=f"INV-{current_year}") \
-            .order_by('-id').first()
+            .order_by('-code').first()
         
         if last and last.code:
             try:
@@ -1485,7 +1484,7 @@ class Purchase_order(SyncBaseModel):
     def _generate_code(self):
         current_year = datetime.date.today().year
         last = Purchase_order.objects.filter(code__startswith=f"PCO-{current_year}") \
-            .order_by('-id').first()
+            .order_by('-code').first()
         
         if last and last.code:
             try:
@@ -1522,7 +1521,7 @@ class Supplies(SyncBaseModel):
     def _generate_code(self):
         current_year = datetime.date.today().year
         last = Supplies.objects.filter(code__startswith=f"SUP-{current_year}") \
-            .order_by('-id').first()
+            .order_by('-code').first()
         
         if last and last.code:
             try:
@@ -1578,7 +1577,7 @@ class DetailsInventory(SyncBaseModel):
         db_table = 'details_inventory'
         ordering = ('-createdAt',)
 
-
+from django.db import transaction
 class Cash_movement(SyncBaseModel):
     
     is_shared = models.BooleanField(default=False, null=True)  # Partagé entre structures
@@ -1605,19 +1604,19 @@ class Cash_movement(SyncBaseModel):
 
     def _generate_code(self):
         current_year = datetime.date.today().year
-        last = Cash_movement.objects.filter(code__startswith=f"CMV-{current_year}") \
-            .order_by('-id').first()
-        
-        if last and last.code:
-            try:
-                last_number = int(last.code.split('-')[-1])
-            except ValueError:
+    
+        with transaction.atomic():
+            last = Cash_movement.objects.select_for_update().filter(code__startswith=f"CMV-{current_year}").order_by('-code').first()
+            if last and last.code:
+                try:
+                    last_number = int(last.code.split('-')[-1])
+                except ValueError:
+                    last_number = 0
+            else:
                 last_number = 0
-        else:
-            last_number = 0
 
-        next_number = last_number + 1
-        return f"CMV-{current_year}-{next_number:04d}"
+            next_number = last_number + 1
+            return f"CMV-{current_year}-{next_number:04d}"
 
     class Meta:
         db_table = 'cash_movement'
@@ -1739,7 +1738,7 @@ class PatientSettlement(SyncBaseModel):
     def _generate_code(self):
         current_year = datetime.date.today().year
         last = PatientSettlement.objects.filter(code__startswith=f"RGP-{current_year}") \
-            .order_by('-id').first()
+            .order_by('-code').first()
         
         if last and last.code:
             try:

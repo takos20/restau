@@ -34,7 +34,6 @@ class SyncViewSet(viewsets.ViewSet):
         hospital_id = request.data.get("hospital_id")
         uuid_val = request.data.get("uuid")  # UUID du client
         sync_version = request.data.get("sync_version", 1)
-        print("ici", hospital_id)
         if not hospital_id:
             
             return Response({"error": "hospital_id requis"}, status=400)
@@ -115,7 +114,6 @@ class SyncViewSet(viewsets.ViewSet):
         limit = int(request.query_params.get("limit", 500))
 
         api_key = request.headers.get("X-API-KEY")
-        print("ici", hospital_id)
         if not hospital_id:
             return Response({"error": "hospital_id requis"}, status=400)
 
@@ -256,7 +254,6 @@ class SyncViewSet(viewsets.ViewSet):
 
             # Vérifier si le modèle est autorisé
             model_name = models
-            print(model_name)
             model_path = next(
                 (m for m in config.models_to_sync if m.endswith(f".{model_name}")),
                 None
