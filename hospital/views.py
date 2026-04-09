@@ -7537,17 +7537,20 @@ class Stock_movementViewSet(viewsets.ModelViewSet):
                     elif stock_mov.type_movement == 'TRANSFER':
                         get_details_stock.quantity -= int(
                             stock_mov.quantity)
-                get_details_stock_dest = Stock.objects.filter(hospital = user.hospital,
-                    ingredient_id=stock_mov.ingredient.id,
-                    storage_depots_id=stock_mov.storage_depots_dest, deleted = False).last()
-                if get_details_stock_dest:
-                    get_details_stock_dest.quantity += int(
-                        stock_mov.quantity)
-                    get_details_stock.save()
-                    get_details_stock_dest.save()
-                else:
-                    get_details_stock.save()
-                    Stock.objects.create(hospital = user.hospital,ingredient_id=get_details_stock.ingredient.id, quantity = int(stock_mov.quantity), storage_depots_id=stock_mov.storage_depots_dest.id)
+                        
+                if stock_mov.storage_depots_dest:
+                
+                    get_details_stock_dest = Stock.objects.filter(hospital = user.hospital,
+                        ingredient_id=stock_mov.ingredient.id,
+                        storage_depots_id=stock_mov.storage_depots_dest, deleted = False).last()
+                    if get_details_stock_dest:
+                        get_details_stock_dest.quantity += int(
+                            stock_mov.quantity)
+                        get_details_stock.save()
+                        get_details_stock_dest.save()
+                    else:
+                        get_details_stock.save()
+                        Stock.objects.create(hospital = user.hospital,ingredient_id=get_details_stock.ingredient.id, quantity = int(stock_mov.quantity), storage_depots_id=stock_mov.storage_depots_dest.id)
                     
             get_stock_movement = Stock_movement.objects.filter(id=request.data['stock_movement'],hospital = user.hospital,user=user, deleted = False).last()
             get_stock_movement.storage_depots_id = request.data['storage_depots']

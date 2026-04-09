@@ -1259,7 +1259,7 @@ class ComposeIngredientViewSet(viewsets.ModelViewSet):
             else:
                 Stock.objects.create(hospital=user.hospital, compose_ingredient_id=request.data['compose_ingredient'],
                         storage_depots_id=get_default_depot.id, quantity=request.data['stock_quantity']
-                    ).last()
+                    )
             
             get_ingredient = DetailsComposeIngredient.objects.filter(compose_ingredient=get_compose).filter(deleted=False)
             # for ingredient in get_ingredient:
@@ -1273,11 +1273,27 @@ class ComposeIngredientViewSet(viewsets.ModelViewSet):
         return Response(data=errors, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, *args, **kwargs):
+        user=self.request.user
         obj = self.get_object()
         obj_form = ComposeIngredientForm(request.data, instance=obj)
         if obj_form.is_valid():
             obj = obj_form.save()
             obj.save()
+            get_default_depot=Storage_depots.objects.filter(hospital=user.hospital, is_default=True, deleted = False).last()
+            if get_default_depot == None:
+                errors = {"error": "Pas depot de stockage par defaut"}
+                return Response(data=errors, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                get_stock = Stock.objects.filter(hospital=user.hospital, compose_ingredient_id=obj.id,
+                        storage_depots_id=get_default_depot.id).last()
+                if get_stock:
+                    get_stock.quantity=request.data['stock_quantity']
+                    get_stock.save()
+
+                else:
+                    Stock.objects.create(hospital=user.hospital, compose_ingredient_id=obj.id,
+                        storage_depots_id=get_default_depot.id, quantity=request.data['stock_quantity']
+                    )
             serializer = self.get_serializer(obj, many=False)
             return Response(data=serializer.data, status=status.HTTP_200_OK)
         errors = {**obj_form.errors}
