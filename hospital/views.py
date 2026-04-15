@@ -469,7 +469,8 @@ class UserViewSet(viewsets.ModelViewSet):
         hospital = self.request.user.hospital
         if hospital:
 
-            permissions = Permission.objects.filter(extended_permissions__hospital=hospital, deleted = False)
+            permissions = Permission.objects.filter(extended_permissions__hospital=hospital)
+            print(permissions)
         else:
             permissions = Permission.objects.all()
         serializer_perm = PermissionsSerializer(permissions, many=True)
@@ -567,7 +568,7 @@ class UserViewSet(viewsets.ModelViewSet):
                         
                         group = ExtendedGroup.objects.get(hospital=hospital, id=self.request.query_params.get("id"), deleted = False)
                         group.group.permissions.clear()
-                        permissions_list = Permission.objects.filter(extension__hospital=hospital, deleted = False)
+                        permissions_list = Permission.objects.filter(extension__hospital=hospital)
                         for permission_index in permissions_list:
                             permission = Permission.objects.get(id=permission_index)
                             group.group.permissions.add(permission)
@@ -603,7 +604,7 @@ class UserViewSet(viewsets.ModelViewSet):
                             hospital__isnull=True
                         ).select_related('group').last()
                         if self.request.user.hospital:
-                            permissions_list = Permission.objects.filter(extension__hospital=self.request.user.hospital, deleted = False)
+                            permissions_list = Permission.objects.filter(extension__hospital=self.request.user.hospital)
                         else:
                             permissions_list = Permission.objects.filter(deleted=False)
                         if extended_group:
@@ -1037,7 +1038,6 @@ class CashViewSet(viewsets.ModelViewSet):
         user = self.request.user
         cash_form = CashForm(request.data)
         if Cash.objects.filter(user=user,is_active=True, type_cash='CASH_COUNTERS', deleted = False).exists():
-
             raise Exception("Session déjà ouverte")
         get_cash = Cash.objects.filter(hospital=self.request.user.hospital, user_id=user.id, is_active=False, type_cash='CASH_COUNTERS', deleted=False).order_by('-id').last()
         if user.check_password(request.data['password']):
@@ -2560,6 +2560,7 @@ class SuppliesViewSet(viewsets.ModelViewSet):
             # else:
             supplies = supplies_form.save()
             supplies.timeAt = time.strftime("%H:%M:%S", time.localtime())
+            supplies.hospital = user.hospital
             supplies.save()
             path = request.path
             end_path = path.rsplit("/", 1)[-1]
@@ -6489,7 +6490,7 @@ class DetailsSuppliesViewSet(viewsets.ModelViewSet):
         user = self.request.user
         path = request.path
         end_path = path.rsplit("/", 1)[-1]
-        get_bills = DetailsSupplies.objects.filter(id=end_path, hospital = user.hospital, supplies_id = request.data["supplies"], user_id = user.id, deleted = False).last()
+        get_bills = DetailsSupplies.objects.filter(id=end_path, hospital = user.hospital, supplies_id = request.data["supplies"], deleted = False).last()
         if get_bills:
             get_bills.arrival_price = Decimal(request.data["arrival_price"])
             get_bills.business_unit = request.data["business_unit"]
@@ -6517,10 +6518,52 @@ class DetailsSuppliesViewSet(viewsets.ModelViewSet):
                 ]
                 detailsSupplies.supplies_id = request.data["supplies"]
                 detailsSupplies.user_id = user.id
+                detailsSupplies.stock_initial = request.data["quantity"]
+                unit_cost = request.data["total_amount"] / request.data["quantity"]
+                detailsSupplies.unit_price = unit_cost
                 detailsSupplies.timeAt = time.strftime(
                     "%H:%M:%S", time.localtime()
                 )
                 detailsSupplies.save()
+
+                get_stock = Stock.objects.filter(hospital=user.hospital, ingredient_id=detailsSupplies.ingredient_id,
+                    storage_depots_id=request.data['storage_depots'], deleted = False
+                ).last()
+                get_ingredient = Ingredient.objects.filter(
+                        id=detailsSupplies.ingredient_id, deleted = False
+                    ).last()
+                if get_stock:
+                    get_stock.stock_quantity += detailsSupplies.quantity
+                    if detailsSupplies.quantity_two:
+                        get_stock.stock_quantity_two += detailsSupplies.quantity_two
+                    get_stock.save()
+                    
+                    unit_cost = detailsSupplies.arrival_price / detailsSupplies.quantity
+                    if get_stock.stock_quantity > 0:
+                        old_value = Decimal(get_stock.stock_quantity) * Decimal(get_ingredient.price_per_unit)
+                        new_value = Decimal(detailsSupplies.quantity) * Decimal(unit_cost)
+
+                        total_qty = Decimal(get_stock.stock_quantity) + Decimal(detailsSupplies.quantity)
+                        price = (old_value + new_value) / total_qty
+
+                        get_ingredient.cmup = price.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                    else:
+                        pass
+
+                else:
+                    Stock.objects.create(hospital=user.hospital,ingredient_id=detailsSupplies.ingredient_id, quantity = detailsSupplies.quantity,quantity_two = detailsSupplies.quantity_two, storage_depots_id=request.data['storage_depots'])
+                        
+                get_ingredient.last_paid_price=detailsSupplies.total_amount
+                get_ingredient.save()
+                
+                MovementStock.objects.create(
+                    ingredient=detailsSupplies.ingredient,
+                    type="ENTRY",
+                    quantity=detailsSupplies.quantity,
+                    source="SUPPLIE",
+                    reference_id=request.data['supplies'],
+                    hospital = user.hospital
+                )
                 serializer = self.get_serializer(detailsSupplies, many=False)
                 return Response(
                     data=serializer.data, status=status.HTTP_201_CREATED
@@ -6541,11 +6584,36 @@ class DetailsSuppliesViewSet(viewsets.ModelViewSet):
             errors = {"errors": ["Cannot delete item"]}
             return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=False, methods=['get'], url_path='noneSupplies')
-    def noneSupplies(self, request, *args, **kwargs):
+    @action(detail=False, methods=['patch'], url_path='edit_row/(?P<pk>.+)')
+    def edit_row(self, request, *args, **kwargs):
         user = self.request.user
-        DetailsSupplies.objects.filter(hospital=self.request.user.hospital,user_id=user.id, supplies_id=None).filter(deleted=False).delete()
-        return Response(status=status.HTTP_200_OK)
+        path = request.path
+        end_path = path.rsplit("/", 1)[-1]
+        get_bills = DetailsSupplies.objects.filter(id=end_path, hospital = user.hospital, supplies_id = request.data["supplies"], deleted = False).last()
+        if get_bills:
+            get_stock = Stock.objects.filter(hospital = user.hospital, ingredient_id=get_bills.ingredient.id, storage_depots_id=request.data["storage_depots"]).last()
+            get_stock.quantity-=get_bills.quantity
+            get_stock.quantity_two-=get_bills.quantity_two
+            get_bills.arrival_price = Decimal(request.data["arrival_price"])
+            get_bills.business_unit = request.data["business_unit"]
+            get_bills.quantity = Decimal(request.data.get("quantity", 0))
+            get_bills.quantity_two = request.data.get("quantity_two", 0)
+            get_bills.timeAt = timezone.now().time()
+            get_bills.total_amount = Decimal(request.data["total_amount"])
+            get_bills.unit_price = Decimal(request.data["total_amount"]) / Decimal(request.data["quantity"])
+            get_bills.updatedAt = timezone.now()
+            get_stock.quantity+=Decimal(request.data.get("quantity", 0))
+            get_stock.quantity_two+=Decimal(request.data.get("quantity_two", 0))
+            get_stock.save()
+
+            get_bills.save()
+            serializer = self.get_serializer(get_bills, many=False)
+            return Response(
+                data=serializer.data, status=status.HTTP_201_CREATED
+            )
+        else:
+            errors = {"error": ["Error to add supplie."]}
+            return Response(data=errors, status=status.HTTP_500)
 
 
 class DetailsPatientAccountViewSet(viewsets.ModelViewSet):
@@ -7122,6 +7190,47 @@ class DetailsStock_movementViewSet(viewsets.ModelViewSet):
         else:
             errors = {"errors": ["Cannot delete item"]}
             return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+        
+    @action(detail=False, methods=['patch'], url_path='edit_row/(?P<pk>.+)')
+    def edit_row(self, request, *args, **kwargs):
+        user = self.request.user
+        path = request.path
+        end_path = path.rsplit("/", 1)[-1]
+        get_bills = DetailsStock_movement.objects.filter(stock_movement_id = request.data['stock_movement'], hospital = self.request.user.hospital,id=end_path, deleted = False).last()
+        if get_bills:
+            get_stock = Stock.objects.filter(hospital = user.hospital, ingredient_id=get_bills.ingredient.id, storage_depots_id=request.data["storage_depots"]).last()
+            if get_bills.type_movement == 'EXIT':
+
+                get_stock.quantity+=get_bills.quantity
+                get_bills.quantity = int(request.data.get("quantity", 0))
+                get_bills.updatedAt = timezone.now()
+                get_stock.quantity-=Decimal(request.data.get("quantity", 0))
+                get_stock.save()
+            elif get_bills.type_movement == 'ENTRY':
+                get_stock.quantity-=get_bills.quantity
+                get_bills.quantity = int(request.data.get("quantity", 0))
+                get_bills.updatedAt = timezone.now()
+                get_stock.quantity+=Decimal(request.data.get("quantity", 0))
+                get_stock.save()
+            else:
+                get_stock = Stock.objects.filter(hospital = user.hospital, ingredient_id=get_bills.ingredient.id, storage_depots_id=get_bills.storage_depots.id,).last()
+                get_stock.quantity+=get_bills.quantity
+                get_bills.quantity = int(request.data.get("quantity", 0))
+                get_stock.quantity+=get_bills.quantity
+                get_stock2 = Stock.objects.filter(hospital = user.hospital, ingredient_id=get_bills.ingredient.id, storage_depots_id=get_bills.storage_depots_dest.id,).last()
+                get_stock2.quantity-=get_bills.quantity
+                get_stock.quantity-=get_bills.quantity
+                get_stock2.quantity+=get_bills.quantity
+                get_stock.save()
+                get_stock2.save()
+            get_bills.save()
+            serializer = self.get_serializer(get_bills, many=False)
+            return Response(
+                data=serializer.data, status=status.HTTP_201_CREATED
+            )
+        else:
+            errors = {"error": ["Error to add supplie."]}
+            return Response(data=errors, status=status.HTTP_500)
 
     @action(detail=False, methods=['get'], url_path='details')
     def get_obj_details(self, request):
@@ -7409,21 +7518,20 @@ class DetailsInventoryViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         path = request.path
         end_path = path.rsplit('/', 1)[-1]
-        get_details = DetailsSupplies.objects.filter(hospital = self.request.user.hospital,id=end_path, deleted = False).last()
+        get_details = DetailsInventory.objects.filter(hospital = self.request.user.hospital,id=end_path, deleted = False, inventory_id=request.data['inventory'], ingredient_id=request.data['ingredient']).last()
         if get_details:
-            get_details.supplies_id = request.data['supplies']
-            get_details.product_id = get_details.product
-            get_details.quantity = request.data['quantity']
-            get_details.total_amount = request.data['total_amount']
-            get_details.product_code = request.data['product_code']
-            get_details.product_name = request.data['product_name']
-            get_details.arrival_price = request.data['arrival_price']
+            get_details.inventory_id = request.data['inventory']
+            get_details.ingredient_id = get_details.ingredient.id
+            get_details.quantity_adjusted = request.data['quantity_adjusted']
+            get_details.quantity_stock = request.data['quantity_stock']
+            get_details.amount_adjusted = request.data['amount_adjusted']
+            get_details.amount = request.data['amount']
             get_details.save()
-            get_sum_details = DetailsSupplies.objects.filter(hospital = self.request.user.hospital,supplies_id=request.data['supplies'], deleted = False).aggregate(
-                Sum('total_amount'))
-            get_supplies = Supplies.objects.filter(hospital = self.request.user.hospital,id=get_details.supplies.id, deleted = False).last()
-            get_supplies.supply_amount = get_sum_details['total_amount__sum']
-            get_supplies.save()
+            # get_sum_details = DetailsSupplies.objects.filter(hospital = self.request.user.hospital,supplies_id=request.data['supplies'], deleted = False).aggregate(
+            #     Sum('total_amount'))
+            # get_supplies = Supplies.objects.filter(hospital = self.request.user.hospital,id=get_details.supplies.id, deleted = False).last()
+            # get_supplies.supply_amount = get_sum_details['total_amount__sum']
+            # get_supplies.save()
             return Response(status=status.HTTP_201_CREATED)
         else:
             errors = {"errors": ["Already exist"]}
@@ -7434,6 +7542,28 @@ class DetailsInventoryViewSet(viewsets.ModelViewSet):
         obj.deleted = True
         obj.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    @action(detail=False, methods=['patch'], url_path='edit_row/(?P<pk>.+)')
+    def edit_row(self, request, *args, **kwargs):
+        user = self.request.user
+        path = request.path
+        end_path = path.rsplit("/", 1)[-1]
+        get_details = DetailsInventory.objects.filter(id=end_path, hospital = user.hospital, supplies_id = request.data["inventory"], deleted = False).last()
+        if get_details:
+            get_stock = Stock.objects.filter(hospital = user.hospital, ingredient_id=get_details.ingredient.id, storage_depots_id=request.data["storage_depots"]).last()
+            get_details.quantity = request.data['quantity_adjusted']
+            get_details.updatedAt = timezone.now()
+            get_stock.quantity=Decimal(request.data.get("quantity_adjusted", 0))
+            get_stock.save()
+
+            get_details.save()
+            serializer = self.get_serializer(get_details, many=False)
+            return Response(
+                data=serializer.data, status=status.HTTP_201_CREATED
+            )
+        else:
+            errors = {"error": ["Error to add supplie."]}
+            return Response(data=errors, status=status.HTTP_500)
 
 
     @action(detail=False, methods=['get'], url_path='noneInv')

@@ -130,7 +130,10 @@ OVERPAYMENT_ACTION = [
 TYPE_CASH = [
     ('CASH_COUNTERS', 'CASH_COUNTERS'),
     ('CASH_MAIN', 'CASH_MAIN'),
-    ('CASH_BANK', 'CASH_BANK')
+    ('CASH_BANK', 'CASH_BANK'),
+    ('CASH', 'Cash'),
+    ('MOMO', 'MTN MoMo'),
+    ('OM', 'Orange Money')
 ]
 
 POSITION_CHOICES = [
@@ -709,6 +712,18 @@ class Cash(SyncBaseModel):
             
         super().save(*args, **kwargs)
 
+# class CashTranslation(SyncBaseModel):
+#     is_shared = models.BooleanField(default=False, null=True)  # Partagé entre structures
+#     hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE, null=True)
+#     cash = models.ForeignKey(Cash, related_name='translations', on_delete=models.CASCADE, null=True)
+#     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
+#     language = models.CharField(max_length=5)  # 'fr', 'en'
+#     name = models.CharField(max_length=255)
+#     description = models.TextField(null=True, blank=True)
+
+#     class Meta:
+#         db_table = 'cash_translation'
+#         unique_together = ('cash', 'language')
 
 class CategoryTranslation(SyncBaseModel):
     is_shared = models.BooleanField(default=False, null=True)  # Partagé entre structures
@@ -722,6 +737,7 @@ class CategoryTranslation(SyncBaseModel):
     class Meta:
         db_table = 'category_translation'
         unique_together = ('category', 'language')
+name_language = models.JSONField(default=list, null=True, blank=True)
 
 
 
@@ -1554,7 +1570,6 @@ class DetailsStock_movement(SyncBaseModel):
     type_movement = models.CharField(max_length=255, choices=TYPE_MVT, blank=True)
     
     class Meta:
-        unique_together = ('stock_movement','ingredient')
         db_table = 'details_stock_movement'
         ordering = ('-createdAt',)
 
@@ -1573,7 +1588,6 @@ class DetailsInventory(SyncBaseModel):
     quantity_adjusted = models.IntegerField(default=0)
 
     class Meta:
-        unique_together = ('inventory','ingredient')
         db_table = 'details_inventory'
         ordering = ('-createdAt',)
 
@@ -1819,7 +1833,6 @@ class DetailsSupplies(SyncBaseModel):
     unit_price = models.FloatField(default=0.0,null=True, blank=True)
     cmup = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)  # prix par unité
     class Meta:
-        unique_together = ('supplies', 'ingredient')
         db_table = 'details_supplies'
         ordering = ('-createdAt',)
 
