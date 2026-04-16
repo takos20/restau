@@ -10,10 +10,11 @@ class DishForm(forms.ModelForm):
     name_language = forms.JSONField(required=False)
     preparation_time = forms.CharField(required=False)
     is_active = forms.BooleanField(initial=True, required=False)
+    is_delivery = forms.BooleanField(initial=True, required=False)
 
     class Meta:
         model = Dish
-        fields = ('sync_version','is_shared', 'preparation_time', 'name_language', 'is_active', 'category')
+        fields = ('sync_version','is_shared', 'preparation_time', 'name_language', 'is_active', 'is_delivery', 'category')
 
 class DishPreparationForm(forms.ModelForm):
     sync_version = forms.IntegerField(required=False)
@@ -98,6 +99,8 @@ class ComboMenuForm(forms.ModelForm):
     sync_version = forms.IntegerField(required=False)
     name_language = forms.JSONField(required=False)
     is_shared = forms.BooleanField(initial=False, required=False)  # Partagé entre structures
+    is_active = forms.BooleanField(initial=True, required=False)
+    is_delivery = forms.BooleanField(initial=True, required=False)
 
     class Meta:
         model = ComboMenu
