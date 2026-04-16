@@ -1125,7 +1125,7 @@ class DishTranslation(SyncBaseModel):
 class ComboMenu(SyncBaseModel):
     is_shared = models.BooleanField(default=False, null=True)  # Partagé entre structures
     # hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE, null=True)
-    code = models.CharField(max_length=255, null=True, blank=True, unique=True)
+    # code = models.CharField(max_length=255, null=True, blank=True, unique=True)
     name_language = models.JSONField(default=list, null=True, blank=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     is_active = models.BooleanField(default=True)
@@ -1137,13 +1137,13 @@ class ComboMenu(SyncBaseModel):
         total = sum([ri.cost for ri in self.ingredients.all()])
         return total
 
-    def save(self, *args, **kwargs):
-        if not self.code:
-            # Générer le prochain code unique
-            add_code(self, prefix = "COM",
-            digit = 4, model=Dish)
+    # def save(self, *args, **kwargs):
+    #     if not self.code:
+    #         # Générer le prochain code unique
+    #         add_code(self, prefix = "COM",
+    #         digit = 4, model=Dish)
             
-        super().save(*args, **kwargs)
+    #     super().save(*args, **kwargs)
     class Meta:
         db_table = 'combo_menu'
         ordering = ('-id',)
