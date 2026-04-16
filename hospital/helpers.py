@@ -285,7 +285,6 @@ def apply_promotions(bill):
                     "current_time": timezone.now(),
                 }
     result = False
-    print(context)
     cummulative = False
     for rule in rules:
         if rule_match(rule, context):
@@ -657,7 +656,6 @@ def check_active_promo(promos):
 
 def check_fidelity(count_dish: int, rules: list):
     for rule in rules:
-        print(count_dish, count_dish % int(rule["number_dishes"]))
         if count_dish > 1 and count_dish % int(rule["number_dishes"]) == 1:
             reduction = float(rule["reduction"])
             return {
@@ -734,7 +732,6 @@ def get_future_remise_notification(count_dish: int, rules: list):
 
 def get_applicable_reduction(count_dish: int, all_rules: list):
     fidelity_rules, promo_rules = split_rules(all_rules)
-    print(fidelity_rules, promo_rules)
     # 1️⃣ Check promo first
     promo = check_active_promo(promo_rules)
     
@@ -746,7 +743,6 @@ def get_applicable_reduction(count_dish: int, all_rules: list):
 
     # 2️⃣ Else check fidelity
     fidelity = check_fidelity(count_dish, fidelity_rules)
-    print(fidelity)
     if fidelity["matched"]:
         return {
             "should_apply": True,
@@ -1065,7 +1061,6 @@ def archive(date_month, user):
         # cursor.execute(
         #     f"SELECT * FROM {table_name} WHERE \"createdAt\" BETWEEN \'{start_day_of_prev_month}\' AND \'{last_day_of_prev_month}\'")
         # data = cursor.fetchall()
-        # print(data)
         try:
             cursor.execute(
                 f"INSERT INTO {table_archive} SELECT * FROM {table_name} WHERE \"createdAt\" BETWEEN \'{start_day_of_prev_month}\' AND \'{last_day_of_prev_month}\'")

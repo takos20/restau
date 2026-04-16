@@ -1,6 +1,6 @@
 from django import forms
 
-from hospital.models import Category, ComposeIngredient, ComposePreparation, DetailsComposeIngredient, DetailsComposePreparation, Dish, DishPreparation, Hospital, Ingredient, Promotion, PromotionAction, PromotionRule, RecipeIngredient, StructureArticle, Type_patient
+from hospital.models import Category, ComboMenu, ComposeIngredient, ComposePreparation, DetailsComboMenu, DetailsComposeIngredient, DetailsComposePreparation, Dish, DishPreparation, Hospital, Ingredient, Promotion, PromotionAction, PromotionRule, RecipeIngredient, StructureArticle, Type_patient
 from rest_framework import serializers
 
 class DishForm(forms.ModelForm):
@@ -94,7 +94,14 @@ class ComposeIngredientForm(forms.ModelForm):
     class Meta:
         model = ComposeIngredient
         fields = '__all__'
+class ComboMenuForm(forms.ModelForm):
+    sync_version = forms.IntegerField(required=False)
+    name_language = forms.JSONField(required=False)
+    is_shared = forms.BooleanField(initial=False, required=False)  # Partagé entre structures
 
+    class Meta:
+        model = ComboMenu
+        fields = '__all__'
 class ComposePreparationForm(forms.ModelForm):
     sync_version = forms.IntegerField(required=False)
     name_language = forms.JSONField(required=False)
@@ -163,17 +170,47 @@ class DetailsComposeIngredientForm(forms.ModelForm):
     class Meta:
         model = DetailsComposeIngredient
         fields = ('sync_version','compose_ingredient', 'ingredient', 'quantity')
+class DetailsComboMenuForm(forms.ModelForm):
+    sync_version = forms.IntegerField(required=False)
+    dish = forms.ModelChoiceField(queryset=Dish.objects.all(), required=True)
+    quantity = forms.FloatField(required=True)
+
+    class Meta:
+        model = DetailsComboMenu
+        fields = ('sync_version','dish', 'quantity')
 
 class StructureArticleForm(forms.ModelForm):
     sync_version = forms.IntegerField(required=False)
     hospital = forms.ModelChoiceField(queryset=Hospital.objects.all(), required=False)
-    dish = forms.ModelChoiceField(queryset=Dish.objects.all(), required=True)
     price = forms.FloatField(required=True)
     is_active = forms.BooleanField(initial=True, required=False)
+    item_uid = forms.CharField(required=True)
 
     class Meta:
         model = StructureArticle
-        fields = ('sync_version','id','hospital', 'dish', 'price', 'is_active')
+        fields = ('sync_version','id','hospital', 'item_uid', 'price', 'is_active')
+    
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+
+        uid = self.cleaned_data['item_uid']  # "ingredient-147"
+
+        model_type, obj_id = uid.split('-')
+        obj_id = int(obj_id)
+
+        if model_type == "dish":
+            instance.dish_id = obj_id
+            instance.combo_menu = None
+
+        elif model_type == "combo":
+            instance.combo_menu_id = obj_id
+            instance.dish = None
+
+        if commit:
+            instance.save()
+
+        return instance
 
 class DishPreparationForm(forms.ModelForm):
     sync_version = forms.IntegerField(required=False)

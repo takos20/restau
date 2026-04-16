@@ -5,7 +5,7 @@ from django.db.models import Sum
 # from django.core.validators import RegexValidator
 # from django.utils.translation import ugettext_lazy as _
 from GH import settings
-from hospital.models import Cash, Cash_movement, Category, CateringInfo, ComposeIngredient, ComposePreparation, DeliveryInfo, DetailsBillsIngredient, DetailsComposeIngredient, DetailsComposePreparation, DetailsPatientAccount, DetailsStock_movement, Dish, DishPreparation, EventInfo, Expenses_nature, ExtendedGroup, ExtendedPermission, Ingredient, MovementStock, Patient, PatientAccount, Promotion, PromotionAction, PromotionRule, RecipeIngredient, District, Insurance, Recipes, Stock, Stock_movement, Storage_depots, StructureArticle, User, Hospital,  \
+from hospital.models import Cash, Cash_movement, Category, CateringInfo, ComboMenu, ComposeIngredient, ComposePreparation, DeliveryInfo, DetailsBillsIngredient, DetailsComboMenu, DetailsComposeIngredient, DetailsComposePreparation, DetailsPatientAccount, DetailsStock_movement, Dish, DishPreparation, EventInfo, Expenses_nature, ExtendedGroup, ExtendedPermission, Ingredient, MovementStock, Patient, PatientAccount, Promotion, PromotionAction, PromotionRule, RecipeIngredient, District, Insurance, Recipes, Stock, Stock_movement, Storage_depots, StructureArticle, User, Hospital,  \
     Suppliers, Supplies, DetailsSupplies, Bills, DetailsBills,PatientSettlement,\
     Inventory, DetailsInventory, City, Region, \
     Purchase_order, Archive, BackupFile, Type_patient, DeliveryInfo, EventInfo, CateringInfo, WarehouseTranslation
@@ -658,6 +658,7 @@ class StockByDepotSerializer(DynamicFieldsModelSerializer):
 
 
 class IngredientSerializer(DynamicFieldsModelSerializer):
+    # cmup = serializers.SerializerMethodField()
     stock = serializers.SerializerMethodField()
     stock_by_depot = serializers.SerializerMethodField()
     stock_two = serializers.SerializerMethodField()
@@ -673,19 +674,35 @@ class IngredientSerializer(DynamicFieldsModelSerializer):
     def get_stock_by_depot(self, obj):
         request = self.context.get('request', None)
         hospital = request.user.hospital
-        stocks = obj.stocks.filter(storage_depots__hospital=hospital).select_related("storage_depots")
+        stocks = obj.stocks.filter(storage_depots__hospital=hospital, deleted=False).select_related("storage_depots")
         return StockByDepotSerializer(stocks, many=True).data
 
     def get_stock(self, obj):
         request = self.context.get('request', None)
         hospital = request.user.hospital
-        total = obj.stocks.filter(storage_depots__hospital=hospital).aggregate(total=Sum("quantity"))["total"]
+        total = obj.stocks.filter(storage_depots__hospital=hospital, deleted=False).aggregate(total=Sum("quantity"))["total"]
         return total or 0
-        
+    
+    # def get_cmup(self, obj):
+    #     request = self.context.get('request', None)
+    #     if request:
+    #         hospital = request.user.hospital
+    #         try:
+    #             sp = obj.stocks.get(hospital=hospital, deleted=False)
+    #             return sp.cmup
+    #         except Stock.DoesNotExist:
+    #             return None
+    #     else:
+    #         try:
+    #             sp = obj.stocks.get(deleted=False)
+    #             return sp.cmup
+    #         except Stock.DoesNotExist:
+    #             return None
+            
     def get_stock_two(self, obj):
         request = self.context.get('request', None)
         hospital = request.user.hospital
-        total = obj.stocks.filter(storage_depots__hospital=hospital).aggregate(total=Sum("quantity_two"))["total"]
+        total = obj.stocks.filter(storage_depots__hospital=hospital, deleted=False).aggregate(total=Sum("quantity_two"))["total"]
         return total or 0
     def get_name(self, obj):
         request = self.context.get('request', None)
@@ -738,10 +755,15 @@ class DishSerializer(DynamicFieldsModelSerializer):
     category = serializers.SerializerMethodField()
     name = serializers.SerializerMethodField()
     price = serializers.SerializerMethodField()
+    uid = serializers.SerializerMethodField()
 
     class Meta:
         model = Dish
-        fields = ["id", "code","name","name_language", "price", "category", "is_delivery","is_active", "preparation_time", "cost", "createdAt"]
+        fields = ["id","uid", "code","name","name_language", "price", "category", "is_delivery","is_active", "preparation_time", "cost", "createdAt"]
+
+    
+    def get_uid(self, obj):
+        return f"dish-{obj.id}"
 
     def get_category(self, obj):
         request = self.context.get('request')
@@ -815,6 +837,48 @@ class ComposeIngredientSerializer(DynamicFieldsModelSerializer):
         hospital = request.user.hospital
         total = obj.stocks.filter(storage_depots__hospital=hospital).aggregate(total=Sum("quantity"))["total"]
         return total or 0
+    
+class ComboMenuSerializer(DynamicFieldsModelSerializer):
+    # recipe_ingredients = RecipeIngredientSerializer(many=True, read_only=True)
+    # category = CategorySerializer()
+    name = serializers.SerializerMethodField()
+    price = serializers.SerializerMethodField()
+    uid = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ComboMenu
+        fields = '__all__'
+
+    def get_uid(self, obj):
+        return f"combo-{obj.id}"
+
+    def get_price(self, obj):
+        request = self.context.get('request', None)
+        if request:
+            hospital = request.user.hospital
+            try:
+                sp = obj.price_combos.get(hospital=hospital, is_active=True, deleted=False)
+                return sp.price
+            except StructureArticle.DoesNotExist:
+                return None
+        else:
+            try:
+                sp = obj.price_combos.get(is_active=True, deleted=False)
+                return sp.price
+            except StructureArticle.DoesNotExist:
+                return None
+    
+    def get_name(self, obj):
+        request = self.context.get('request', None)
+        lang = getattr(request, 'LANGUAGE_CODE', 'fr')
+
+        # Essaie la langue de la requête
+        translations = {
+            t.language: t.name
+            for t in obj.translations.all()
+        }
+
+        return translations.get(lang) or translations.get("fr")
     
 class StockSerializer(DynamicFieldsModelSerializer):
     hospital = HospitalSerializer(many=False, fields=('id', 'name'))
@@ -901,7 +965,8 @@ class DetailsBillsSerializer(DynamicFieldsModelSerializer):
     user = UserSerializer(many=False, fields=('id', 'username'))
     promotion = PromotionSerializer(many=False, fields=('id', 'name'))
     # dish = DishSerializer(many=False)
-    dish = serializers.SerializerMethodField()
+    dish = DishSerializer(many=False, fields=('id', 'name'))
+    combo_menu = ComboMenuSerializer(many=False, fields=('id', 'name'))
     storage_depots = serializers.SerializerMethodField()
     options = serializers.SerializerMethodField()
     
@@ -910,12 +975,18 @@ class DetailsBillsSerializer(DynamicFieldsModelSerializer):
         model = DetailsBills
         exclude = ('updatedAt',)
     
-    def get_dish(self, obj):
-        request = self.context.get('request')
-        return DishSerializer(
-            obj.dish,
-            context=self.context
-        ).data
+    # def get_dish(self, obj):
+    #     request = self.context.get('request')
+    #     return DishSerializer(
+    #         obj.dish,
+    #         context=self.context
+    #     ).data    
+    # def get_combo_menu(self, obj):
+    #     request = self.context.get('request')
+    #     return ComboMenuSerializer(
+    #         obj.combo_menu,
+    #         context=self.context
+    #     ).data
     def get_storage_depots(self, obj):
         request = self.context.get('request')
         return Storage_depotsSerializer(
@@ -1031,10 +1102,29 @@ class DetailsComposeIngredientSerializer(DynamicFieldsModelSerializer):
             obj.ingredient,
             context={'request': request}
         ).data    #     ).data
+
+class DetailsComboMenuSerializer(DynamicFieldsModelSerializer):
+    combo_menu = ComboMenuSerializer(many=False, fields=('id', 'name'))
+    # ingredient = IngredientSerializer()
+    dish = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DetailsComboMenu
+        fields = '__all__'
+
+    def get_dish(self, obj):
+        request = self.context.get('request')
+        return DishSerializer(
+            obj.dish,
+            context={'request': request}
+        ).data    #     ).data
+
+
 class StructureArticleSerializer(DynamicFieldsModelSerializer):
     hospital = HospitalSerializer(many=False, fields=('id', 'name'))
     # ingredient = IngredientSerializer()
     dish = DishSerializer(many=False, fields=('id', 'name'))
+    combo_menu = ComboMenuSerializer(many=False, fields=('id', 'name'))
 
     class Meta:
         model = StructureArticle

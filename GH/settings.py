@@ -126,7 +126,7 @@ import dj_database_url
 SYNC_SECRET_KEY = os.environ.get("SYNC_SECRET_KEY")
 DATABASES = {
     "default": dj_database_url.config(
-        default=os.environ.get("DATABASE_URL"),
+        default="postgresql://restaurant_mnzc_user:OjZ6EhOsELeFQDx8cUal47fiH8M89Aa6@dpg-d67ib28boq4c73fvqqk0-a.virginia-postgres.render.com/restaurant_mnzc",
         conn_max_age=600,
         ssl_require=True
     )

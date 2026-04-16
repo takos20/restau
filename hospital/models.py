@@ -9,6 +9,7 @@ from django.contrib.postgres.fields import JSONField
 from django.utils.timezone import now
 from django.contrib.auth.models import Group, Permission
 import uuid
+from decimal import Decimal
 from django.db.models import Q
 USER_CHOICES = [
     ('RESPONSIBLE', 'Responsible'),
@@ -1109,7 +1110,6 @@ class Dish(SyncBaseModel):
     class Meta:
         db_table = 'dish'
         ordering = ('-id',)
-
 class DishTranslation(SyncBaseModel):
     is_shared = models.BooleanField(default=False, null=True)  # Partagé entre structures
     # hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE, null=True)
@@ -1122,7 +1122,56 @@ class DishTranslation(SyncBaseModel):
         db_table = 'dish_translation'
         unique_together = ('dish', 'language')
 
-from decimal import Decimal
+class ComboMenu(SyncBaseModel):
+    is_shared = models.BooleanField(default=False, null=True)  # Partagé entre structures
+    # hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE, null=True)
+    code = models.CharField(max_length=255, null=True, blank=True, unique=True)
+    name_language = models.JSONField(default=list, null=True, blank=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    is_delivery = models.BooleanField(default=True, null=True)
+
+    @property
+    def cost(self):
+        """Coût total des ingrédients"""
+        total = sum([ri.cost for ri in self.ingredients.all()])
+        return total
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            # Générer le prochain code unique
+            add_code(self, prefix = "COM",
+            digit = 4, model=Dish)
+            
+        super().save(*args, **kwargs)
+    class Meta:
+        db_table = 'combo_menu'
+        ordering = ('-id',)
+
+class ComboMenuTranslation(SyncBaseModel):
+    is_shared = models.BooleanField(default=False, null=True)  # Partagé entre structures
+    # hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE, null=True)
+    combo_menu = models.ForeignKey(ComboMenu, related_name='translations', on_delete=models.CASCADE, null=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    language = models.CharField(max_length=5)  # 'fr', 'en'
+    name = models.CharField(max_length=255)
+    description = models.TextField(null=True, blank=True)
+    class Meta:
+        db_table = 'combo_menu_translation'
+        unique_together = ('combo_menu', 'language')
+
+class DetailsComboMenu(SyncBaseModel):
+    is_shared = models.BooleanField(default=False, null=True)  # Partagé entre structures
+    hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE, null=True)
+    dish = models.ForeignKey(Dish, on_delete=models.CASCADE, null=True)
+    combo_menu = models.ForeignKey(ComboMenu, on_delete=models.CASCADE, related_name='combo_menus', null=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    quantity = models.DecimalField(max_digits=12, decimal_places=3, default=Decimal('0.000'))
+    
+    class Meta:
+        db_table = 'details_combo_menu'
+        ordering = ('-createdAt',)
+
 
 class Recipes(SyncBaseModel):
     is_shared = models.BooleanField(default=False, null=True)  # Partagé entre structures
@@ -1201,6 +1250,7 @@ class Stock(SyncBaseModel):
     ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE, null=True, related_name="stocks")
     quantity = models.DecimalField(max_digits=12, decimal_places=3, default=Decimal('0.000'))
     quantity_two = models.DecimalField(max_digits=12, decimal_places=3, default=Decimal('0.000'))
+    cmup = models.FloatField(default=0.0, null=True, blank=True)
 
     class Meta:
         db_table = 'stock'
@@ -1379,6 +1429,7 @@ class DetailsBills(SyncBaseModel):
     cash = models.ForeignKey(Cash, on_delete=models.CASCADE, null=True, blank=True)
     bills = models.ForeignKey(Bills, on_delete=models.CASCADE, null=True, blank=True, related_name='bills')
     dish = models.ForeignKey(Dish, on_delete=models.CASCADE, null=True, blank=True)
+    combo_menu = models.ForeignKey(ComboMenu, on_delete=models.CASCADE, null=True, blank=True)
     quantity_served = models.IntegerField(default=0)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, null=True, related_name='details_bills')
     storage_depots = models.ForeignKey(Storage_depots, on_delete=models.CASCADE, null=True)
@@ -1949,6 +2000,7 @@ class PromotionAction(SyncBaseModel):
 class StructureArticle(SyncBaseModel):
     is_shared = models.BooleanField(default=False, null=True)  # Partagé entre structures
     hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE, null=True)
+    combo_menu = models.ForeignKey(ComboMenu, on_delete=models.CASCADE, null=True, related_name='price_combos')
     dish = models.ForeignKey(Dish, on_delete=models.CASCADE, null=True, related_name='prices')
     is_active = models.BooleanField(default=True, null=True)  # Partagé entre structures
     price = models.FloatField()  # 50% ou 100% ou 2000 FCFA

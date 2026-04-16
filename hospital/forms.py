@@ -409,6 +409,7 @@ class DetailsInventoryForm(forms.ModelForm):
     sync_version = forms.IntegerField(required=False)
     is_shared = forms.BooleanField(initial=False, required=False)  # Partagé entre structures
     hospital = forms.ModelChoiceField(required=False, queryset=Hospital.objects.all())
+    storage_depots = forms.ModelChoiceField(required=False, queryset=Storage_depots.objects.all())
     ingredient = forms.ModelChoiceField(required=False, queryset=Ingredient.objects.all())
     inventory = forms.ModelChoiceField(required=False, queryset=Inventory.objects.all())
     amount = forms.CharField(required=False)
@@ -419,7 +420,7 @@ class DetailsInventoryForm(forms.ModelForm):
 
     class Meta:
         model = DetailsInventory
-        fields = ('sync_version','is_shared','hospital',
+        fields = ('sync_version','is_shared','hospital','storage_depots',
             'amount', 'amount_adjusted', 'ingredient','inventory', 'quantity_adjusted', 'quantity_stock',
             'cmup')
 
@@ -463,12 +464,34 @@ class DetailsBillsForm(forms.ModelForm):
     pub = forms.CharField(required=False)
     delivery = forms.CharField(required=False)
     user = forms.ModelChoiceField(required=False, queryset=User.objects.all())
-    dish = forms.ModelChoiceField(required=False, queryset=Dish.objects.all())
+    # dish = forms.ModelChoiceField(required=False, queryset=Dish.objects.all())
     storage_depots = forms.ModelChoiceField(required=False, queryset=Storage_depots.objects.all())
     patient = forms.ModelChoiceField(required=False, queryset=Patient.objects.all())
+    item_uid = forms.CharField(required=True)
     class Meta:
         model = DetailsBills
         fields = '__all__'
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+
+        uid = self.cleaned_data['item_uid']  # "ingredient-147"
+
+        model_type, obj_id = uid.split('-')
+        obj_id = int(obj_id)
+
+        if model_type == "dish":
+            instance.dish_id = obj_id
+            instance.combo_menu = None
+
+        elif model_type == "combo":
+            instance.combo_menu_id = obj_id
+            instance.dish = None
+
+        if commit:
+            instance.save()
+
+        return instance
 
 class DetailsBillsIngredientForm(forms.ModelForm):
     sync_version = forms.IntegerField(required=False)
@@ -714,7 +737,6 @@ class UserFormUpdate(forms.ModelForm):
     def save(self, commit=True):
         user = super(UserFormUpdate, self).save(commit=False)
         password = self.cleaned_data["password"]
-        print(user.id)
         if password:
             user.set_password(password)
         else:

@@ -1,6 +1,6 @@
 import django_filters
 
-from hospital.models import ComposeIngredient, ComposePreparation, DetailsComposeIngredient, DetailsComposePreparation, Dish, DishPreparation, Ingredient, Promotion, PromotionAction, PromotionRule, RecipeIngredient, StructureArticle
+from hospital.models import ComboMenu, ComposeIngredient, ComposePreparation, DetailsComboMenu, DetailsComposeIngredient, DetailsComposePreparation, Dish, DishPreparation, Ingredient, Promotion, PromotionAction, PromotionRule, RecipeIngredient, StructureArticle
 from django.utils import timezone
 from datetime import datetime, time
 
@@ -42,7 +42,16 @@ class ComposeIngredientFilter(django_filters.FilterSet):
         model = ComposeIngredient
         fields = {'id': ['exact']}
 
-    
+
+class ComboMenuFilter(django_filters.FilterSet):
+    is_shared = django_filters.BooleanFilter(lookup_expr='exact')
+    hospital = django_filters.CharFilter(field_name='hospital__id', lookup_expr='exact')
+    name_language = django_filters.CharFilter(lookup_expr='icontains')
+    createdAt = django_filters.DateFilter(lookup_expr='exact')
+
+    class Meta:
+        model = ComboMenu
+        fields = {'id': ['exact']}
 
 
 class PromotionFilter(django_filters.FilterSet):
@@ -129,6 +138,19 @@ class DetailsComposeIngredientFilter(django_filters.FilterSet):
 
     class Meta:
         model = DetailsComposeIngredient
+        fields = {'id': ['exact']}
+
+class DetailsComboMenuFilter(django_filters.FilterSet):
+    is_shared = django_filters.BooleanFilter(lookup_expr='exact')
+    hospital = django_filters.CharFilter(field_name='hospital__id', lookup_expr='exact')
+    code = django_filters.CharFilter(lookup_expr='icontains')
+    name_language = django_filters.CharFilter(lookup_expr='icontains')
+    createdAt = django_filters.DateFilter(lookup_expr='exact')
+    dish = django_filters.CharFilter(field_name='dish__id', lookup_expr='exact')
+    combo_menu = django_filters.CharFilter(field_name='combo_menu__id', lookup_expr='exact')
+
+    class Meta:
+        model = DetailsComboMenu
         fields = {'id': ['exact']}
 
 class StructureArticleFilter(django_filters.FilterSet):

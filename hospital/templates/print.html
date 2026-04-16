@@ -428,8 +428,12 @@
         </thead>
         <tbody>
             {% for product in products %}
-            <tr>
+
+            <tr>{% if product.dish %}
                 <td>{{ product.dish.name_language.0.name }}</td>
+                {% else %}
+                <td>{{ product.combo_menu.name_language.0.name }}</td>
+                {% endif %}
                 <td class="text-center">{{ product.quantity_served }}</td>
                 <td class="text-center">{{ product.pun|floatformat:0 }}</td>
                 <td class="text-center bold">{{ product.amount_net|floatformat:0 }}</td>

@@ -20,7 +20,7 @@ from hospital.forms import DetailsBillsIngredientForm, DetailsInventoryForm, Det
     CashForm, Cash_movementForm, CategoryForm,\
     SuppliesForm, SuppliersForm, DetailsSuppliesForm, BillsForm, DetailsBillsForm,PatientSettlementForm, \
     InventoryForm
-from hospital.models import CategoryTranslation, ComposeIngredient, ComposePreparation, DetailsBillsIngredient, DetailsComposeIngredient, DetailsStock_movement, DishPreparation, DishTranslation, ExtendedPermission, DetailsPatientAccount, ExtendedGroup, Ingredient, MovementStock, PatientAccount, RecipeIngredient, District, Insurance, Stock, Storage_depots, StructureArticle, Type_patient, User, Hospital, Patient, \
+from hospital.models import CategoryTranslation, ComboMenu, ComposeIngredient, ComposePreparation, DetailsBillsIngredient, DetailsComboMenu, DetailsComposeIngredient, DetailsStock_movement, DishPreparation, DishTranslation, ExtendedPermission, DetailsPatientAccount, ExtendedGroup, Ingredient, MovementStock, PatientAccount, RecipeIngredient, District, Insurance, Stock, Storage_depots, StructureArticle, Type_patient, User, Hospital, Patient, \
     Expenses_nature,  Cash, Cash_movement, Category, Supplies, Suppliers, \
     DetailsSupplies, Bills, DetailsBills,PatientSettlement, Stock_movement, \
     Inventory, DetailsInventory, City, Region, \
@@ -431,7 +431,6 @@ class UserViewSet(viewsets.ModelViewSet):
             if user.check_password(serializer.data.get("old_password")):
                 user.set_password(serializer.data.get("new_password"))
                 user.save()
-                # print(user)
                 return Response(data=message, status=status.HTTP_200_OK)
             return Response(data=error, status=status.HTTP_400_BAD_REQUEST)
 
@@ -470,7 +469,6 @@ class UserViewSet(viewsets.ModelViewSet):
         if hospital:
 
             permissions = Permission.objects.filter(extended_permissions__hospital=hospital)
-            print(permissions)
         else:
             permissions = Permission.objects.all()
         serializer_perm = PermissionsSerializer(permissions, many=True)
@@ -480,7 +478,6 @@ class UserViewSet(viewsets.ModelViewSet):
         #     update=dict(perm)
         #     get_perm=Permission.objects.filter(module_id=update['id'])
         #     update['contentType']=get_perm.content_type
-        #     print(update)
         content = {'content': serializer_perm.data}
         return Response(data=content, status=status.HTTP_200_OK)
 
@@ -494,8 +491,6 @@ class UserViewSet(viewsets.ModelViewSet):
         # content_type=[]
         # for model in serializer.data:
         #     if model['model'] in remove_model:
-        #         print(model)
-        #         print(model.index(model['model']))
         #     else:
         #         content_type.append(model)
         return Response(data=content, status=status.HTTP_200_OK)
@@ -529,18 +524,18 @@ class UserViewSet(viewsets.ModelViewSet):
                 # Attribution permissions
                 if checkbox:
                     if self.request.user.is_superuser:
-                        permissions = Permission.objects.filter(deleted=False)
+                        permissions = Permission.objects.all()
                     else:
                         permissions = Permission.objects.filter(
                             extended_permissions__hospital=self.request.user.hospital,
-                            extended_permissions__is_active=True, deleted = False
+                            extended_permissions__is_active=True
                         )
 
                     group.permissions.set(permissions)
 
                 else:
                     permission_ids = request.data.get('permission', [])
-                    permissions = Permission.objects.filter(id__in=permission_ids, deleted = False)
+                    permissions = Permission.objects.filter(id__in=permission_ids)
                     group.permissions.set(permissions)
 
                 return Response(status=status.HTTP_201_CREATED)
@@ -582,7 +577,6 @@ class UserViewSet(viewsets.ModelViewSet):
                         #
                         # for perm in permissions:
                         #     p = Permission.objects.get(id=perm)
-                        #     print(p)
                         #     permissions_list_id.append(p.id)
 
                         # new_group.permissions.set(permissions_list_id)
@@ -623,7 +617,6 @@ class UserViewSet(viewsets.ModelViewSet):
                         #
                         # for perm in permissions:
                         #     p = Permission.objects.get(id=perm)
-                        #     print(p)
                         #     permissions_list_id.append(p.id)
 
                         # new_group.permissions.set(permissions_list_id)
@@ -2479,25 +2472,26 @@ class SuppliesViewSet(viewsets.ModelViewSet):
                         id=supplie.ingredient_id, deleted = False
                     ).last()
                 if get_stock:
-                    get_stock.stock_quantity += supplie.quantity
-                    if supplie.quantity_two:
-                        get_stock.stock_quantity_two += supplie.quantity_two
+                    get_stock.cmup = supplie.cmup
                     get_stock.save()
+                    # if supplie.quantity_two:
+                    #     get_stock.quantity_two += supplie.quantity_two
+                    # get_stock.save()
                     
-                    unit_cost = supplie.arrival_price / supplie.quantity
-                    if get_stock.stock_quantity > 0:
-                        old_value = Decimal(get_stock.stock_quantity) * Decimal(get_ingredient.price_per_unit)
-                        new_value = Decimal(supplie.quantity) * Decimal(unit_cost)
+                    # unit_cost = supplie.arrival_price / supplie.quantity
+                    # if get_stock.quantity > 0:
+                    #     old_value = Decimal(get_stock.quantity) * Decimal(get_ingredient.price_per_unit)
+                    #     new_value = Decimal(supplie.quantity) * Decimal(unit_cost)
 
-                        total_qty = Decimal(get_stock.stock_quantity) + Decimal(supplie.quantity)
-                        price = (old_value + new_value) / total_qty
+                    #     total_qty = Decimal(get_stock.quantity) + Decimal(supplie.quantity)
+                    #     price = (old_value + new_value) / total_qty
 
-                        get_ingredient.cmup = price.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-                    else:
-                        pass
+                    #     get_ingredient.cmup = price.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                    # else:
+                    #     pass
 
                 else:
-                    Stock.objects.create(hospital=user.hospital,ingredient_id=supplie.ingredient_id, quantity = supplie.quantity,quantity_two = supplie.quantity_two, storage_depots_id=request.data['storage_depots'])
+                    Stock.objects.create(hospital=user.hospital,ingredient_id=supplie.ingredient_id,cmup=supplie.cmup, quantity = supplie.quantity,quantity_two = supplie.quantity_two, storage_depots_id=request.data['storage_depots'])
                         
                 get_ingredient.last_paid_price=supplie.total_amount
                 get_ingredient.save()
@@ -2705,9 +2699,10 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                 detailsBills.user_id = user.id
                 detailsBills.hospital = user.hospital
                 detailsBills.storage_depots_id = request.data['storage_depots']
-                get_price_dish = StructureArticle.objects.filter(hospital = user.hospital, dish_id = detailsBills.dish.id).filter(deleted=False).last()
-
-                
+                if detailsBills.dish:
+                    get_price_dish = StructureArticle.objects.filter(hospital = user.hospital, dish_id = detailsBills.dish.id).filter(deleted=False).last()
+                else:
+                    get_price_dish = StructureArticle.objects.filter(hospital = user.hospital, combo_menu_id = detailsBills.combo_menu.id).filter(deleted=False).last()                
                 if request.data['cash']:
                     get_cash = Cash.objects.filter(hospital=user.hospital,id=request.data['cash'], user_id=user.id, is_active=True, deleted = False).last()
                 else:
@@ -2723,12 +2718,20 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                 if get_cash:
                     reduction = 0
                     if 'type' in request.data and request.data['type']=='free':
-                        result = DetailsBills.objects.filter(
-                            hospital=user.hospital,
-                            patient=request.data['patient'],
-                            dish__is_delivery=True,
-                            deleted=False
-                        ).aggregate(total_dishes=Sum('quantity_served'))
+                        if detailsBills.dish:
+                            result = DetailsBills.objects.filter(
+                                hospital=user.hospital,
+                                patient=request.data['patient'],
+                                dish__is_delivery=True,
+                                deleted=False
+                            ).aggregate(total_dishes=Sum('quantity_served'))
+                        else:
+                            result = DetailsBills.objects.filter(
+                                hospital=user.hospital,
+                                patient=request.data['patient'],
+                                combo_menu__is_delivery=True,
+                                deleted=False
+                            ).aggregate(total_dishes=Sum('quantity_served'))
 
                         if result['total_dishes'] is not None:
                             total_dishes =  result['total_dishes']
@@ -2740,8 +2743,11 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                         
                         result, cummulative = apply_promotions(detailsBills)
                         if result == True and cummulative == True:
-                                
-                            if user.hospital.rules_reduction and detailsBills.dish.is_delivery == True and  user.hospital.use_delivery == True:
+                            if detailsBills.dish:
+                                is_delivery=detailsBills.dish.is_delivery
+                            else:
+                                is_delivery=detailsBills.combo_menu.is_delivery
+                            if user.hospital.rules_reduction and is_delivery == True and  user.hospital.use_delivery == True:
                                 
                                 rules = normalize_rules(user.hospital.rules_reduction)
 
@@ -2790,48 +2796,92 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                             #         cost = qty * detail.ingredient.price_per_unit
                             #     else:
                             #         cost = 0
-                            recipes = RecipeIngredient.objects.filter(hospital = user.hospital, dish_id = detailsBills.dish.id).filter(deleted=False)
-                            if recipes:
-                                for recipe in recipes:
-                                    if int(get_price_dish.price) == int(request.data['pun']):
-                                        new_quantity = recipe.quantity
-                                    else:
-                                        new_quantity =  math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price) * 10) / 10
-                                    total_quantity = int(request.data['quantity_served']) * int(new_quantity)
-                                    if recipe.ingredient:
-                                        if recipe.ingredient.price_per_unit:
-                                            price = recipe.ingredient.price_per_unit
+                            if detailsBills.dish:
+                                recipes = RecipeIngredient.objects.filter(hospital = user.hospital, dish_id = detailsBills.dish.id).filter(deleted=False)
+                                if recipes:
+                                    for recipe in recipes:
+                                        if int(get_price_dish.price) == int(request.data['pun']):
+                                            new_quantity = recipe.quantity
                                         else:
+                                            new_quantity =  math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price) * 10) / 10
+                                        total_quantity = int(request.data['quantity_served']) * int(new_quantity)
+                                        if recipe.ingredient:
+                                            if recipe.ingredient.price_per_unit:
+                                                price = recipe.ingredient.price_per_unit
+                                            else:
+                                                price=0
+                                            impact_price = Decimal(request.data['quantity_served']) * price
+                                            DetailsBillsIngredient.objects.create(hospital = user.hospital, ingredient_id=recipe.ingredient.id, quantity=total_quantity,impact_price=float(impact_price), details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
+                                        else:
+                                            
                                             price=0
-                                        impact_price = Decimal(request.data['quantity_served']) * price
-                                        DetailsBillsIngredient.objects.create(hospital = user.hospital, ingredient_id=recipe.ingredient.id, quantity=total_quantity,impact_price=float(impact_price), details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
-                                    else:
-                                        
-                                        price=0
-                                        DetailsBillsIngredient.objects.create(hospital = user.hospital, compose_ingredient_id=recipe.compose_ingredient.id, quantity=total_quantity,impact_price=price, details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
+                                            DetailsBillsIngredient.objects.create(hospital = user.hospital, compose_ingredient_id=recipe.compose_ingredient.id, quantity=total_quantity,impact_price=price, details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
 
-                                total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id,hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
-                                
-                                detailsBills.cost_production = total['total_amount__sum']
-                                detailsBills.margin = float(detailsBills.amount_net) - float(total['total_amount__sum'])
-                                detailsBills.save()
-                                # save_bills(get_bills=bills, request=request)
-                                serializer = self.get_serializer(detailsBills, many=False)
-                                content = {
-                                    'data': serializer.data,
-                                    'reduction': 0
-                                }
-                                return Response(data=content, status=status.HTTP_201_CREATED)
+                                    total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id,hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
+                                    
+                                    detailsBills.cost_production = total['total_amount__sum']
+                                    detailsBills.margin = float(detailsBills.amount_net) - float(total['total_amount__sum'])
+                                    detailsBills.save()
+                                    # save_bills(get_bills=bills, request=request)
+                                    serializer = self.get_serializer(detailsBills, many=False)
+                                    content = {
+                                        'data': serializer.data,
+                                        'reduction': 0
+                                    }
+                                    return Response(data=content, status=status.HTTP_201_CREATED)
+                                else:
+                                    serializer = self.get_serializer(detailsBills, many=False)
+                                    content = {
+                                        'data': serializer.data,
+                                        'reduction': 0
+                                    }
+                                    return Response(data=content, status=status.HTTP_201_CREATED)
                             else:
+                                get_all_dish=DetailsComboMenu.objects.filter(combo_menu_id = detailsBills.combo_menu.id, deleted = False)
+                                for dish in get_all_dish:
+                                    recipes = RecipeIngredient.objects.filter(hospital = user.hospital, dish_id = dish.dish.id).filter(deleted=False)
+                                    if recipes:
+                                        for recipe in recipes:
+                                            if int(get_price_dish.price) == int(request.data['pun']):
+                                                new_quantity = recipe.quantity
+                                            else:
+                                                new_quantity =  math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price) * 10) / 10
+                                            total_quantity = int(request.data['quantity_served']) * int(new_quantity)
+                                            if recipe.ingredient:
+                                                if recipe.ingredient.price_per_unit:
+                                                    price = recipe.ingredient.price_per_unit
+                                                else:
+                                                    price=0
+                                                impact_price = Decimal(request.data['quantity_served']) * price
+                                                DetailsBillsIngredient.objects.create(hospital = user.hospital, ingredient_id=recipe.ingredient.id, quantity=total_quantity,impact_price=float(impact_price), details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
+                                            else:
+                                                
+                                                price=0
+                                                DetailsBillsIngredient.objects.create(hospital = user.hospital, compose_ingredient_id=recipe.compose_ingredient.id, quantity=total_quantity,impact_price=price, details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
+
+                                        total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id,hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
+                                        
+                                        detailsBills.cost_production = total['total_amount__sum']
+                                        detailsBills.margin = float(detailsBills.amount_net) - float(total['total_amount__sum'])
+                                        detailsBills.save()
+                                        # save_bills(get_bills=bills, request=request)
+                                        
+                                    else:
+                                        pass
                                 serializer = self.get_serializer(detailsBills, many=False)
                                 content = {
                                     'data': serializer.data,
                                     'reduction': 0
                                 }
                                 return Response(data=content, status=status.HTTP_201_CREATED)
+                            
                         else:
-                                 
-                            if user.hospital.rules_reduction and detailsBills.dish.is_delivery == True and  user.hospital.use_delivery == True:
+                            if detailsBills.dish:
+                                is_delivery=detailsBills.dish.is_delivery
+                            else:
+                                is_delivery=detailsBills.combo_menu.is_delivery
+
+                            if user.hospital.rules_reduction and is_delivery == True and  user.hospital.use_delivery == True:
                                 
                                 rules = normalize_rules(user.hospital.rules_reduction)
 
@@ -2861,43 +2911,81 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                         detailsBills.cash_id = get_cash.id
                         detailsBills.timeAt = time.strftime("%H:%M:%S", time.localtime())
                         detailsBills.save()
-                        
-                        recipes = RecipeIngredient.objects.filter(dish_id = detailsBills.dish.id).filter(deleted=False)
-                        if recipes:
-                            for recipe in recipes:
-                                if int(get_price_dish.price) == int(request.data['pun']):
-                                    new_quantity = recipe.quantity 
-                                else:
-                                    new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price) * 10) / 10
-                                total_quantity = int(request.data['quantity_served']) * int(new_quantity)
-                                if recipe.ingredient:
-                                    if recipe.ingredient.price_per_unit:
-                                        price = recipe.ingredient.price_per_unit
+                        if detailsBills.dish:
+                            recipes = RecipeIngredient.objects.filter(dish_id = detailsBills.dish.id).filter(deleted=False)
+                            if recipes:
+                                for recipe in recipes:
+                                    if int(get_price_dish.price) == int(request.data['pun']):
+                                        new_quantity = recipe.quantity 
                                     else:
+                                        new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price) * 10) / 10
+                                    total_quantity = int(request.data['quantity_served']) * int(new_quantity)
+                                    if recipe.ingredient:
+                                        if recipe.ingredient.price_per_unit:
+                                            price = recipe.ingredient.price_per_unit
+                                        else:
+                                            price=0
+                                        impact_price = Decimal(request.data['quantity_served']) * price
+                                        DetailsBillsIngredient.objects.create(hospital = user.hospital, ingredient_id=recipe.ingredient.id, quantity=total_quantity,impact_price=float(impact_price), details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
+                                    else:
+                                        
                                         price=0
-                                    impact_price = Decimal(request.data['quantity_served']) * price
-                                    DetailsBillsIngredient.objects.create(hospital = user.hospital, ingredient_id=recipe.ingredient.id, quantity=total_quantity,impact_price=float(impact_price), details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
-                                else:
-                                    
-                                    price=0
-                                    DetailsBillsIngredient.objects.create(hospital = user.hospital, compose_ingredient_id=recipe.compose_ingredient.id, quantity=total_quantity,impact_price=price, details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
+                                        DetailsBillsIngredient.objects.create(hospital = user.hospital, compose_ingredient_id=recipe.compose_ingredient.id, quantity=total_quantity,impact_price=price, details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
 
-                            total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id,hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
-                            
-                            detailsBills.cost_production = total['total_amount__sum']
-                            detailsBills.margin = float(detailsBills.amount_net) - float(total['total_amount__sum'])
-                            detailsBills.save()
-                            # save_bills(get_bills=bills, request=request)
-                            serializer = self.get_serializer(detailsBills, many=False)
-                            content = {
-                                'data': serializer.data,
-                                'reduction': reduction
-                            }
-                            return Response(data=content, status=status.HTTP_201_CREATED)
+                                total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id,hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
+                                
+                                detailsBills.cost_production = total['total_amount__sum']
+                                detailsBills.margin = float(detailsBills.amount_net) - float(total['total_amount__sum'])
+                                detailsBills.save()
+                                # save_bills(get_bills=bills, request=request)
+                                serializer = self.get_serializer(detailsBills, many=False)
+                                content = {
+                                    'data': serializer.data,
+                                    'reduction': reduction
+                                }
+                                return Response(data=content, status=status.HTTP_201_CREATED)
+                            else:
+                                pass
                         else:
-                            pass
+                            get_all_dish=DetailsComboMenu.objects.filter(combo_menu_id = detailsBills.combo_menu.id, deleted = False)
+                            for dish in get_all_dish:
+                                recipes = RecipeIngredient.objects.filter(hospital = user.hospital, dish_id = dish.dish.id).filter(deleted=False)
+                                if recipes:
+                                    for recipe in recipes:
+                                        if int(get_price_dish.price) == int(request.data['pun']):
+                                            new_quantity = recipe.quantity
+                                        else:
+                                            new_quantity =  math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price) * 10) / 10
+                                        total_quantity = int(request.data['quantity_served']) * int(new_quantity)
+                                        if recipe.ingredient:
+                                            if recipe.ingredient.price_per_unit:
+                                                price = recipe.ingredient.price_per_unit
+                                            else:
+                                                price=0
+                                            impact_price = Decimal(request.data['quantity_served']) * price
+                                            DetailsBillsIngredient.objects.create(hospital = user.hospital, ingredient_id=recipe.ingredient.id, quantity=total_quantity,impact_price=float(impact_price), details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
+                                        else:
+                                            price=0
+                                            DetailsBillsIngredient.objects.create(hospital = user.hospital, compose_ingredient_id=recipe.compose_ingredient.id, quantity=total_quantity,impact_price=price, details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
+
+                                    total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id,hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
+                                    
+                                    detailsBills.cost_production = total['total_amount__sum']
+                                    detailsBills.margin = float(detailsBills.amount_net) - float(total['total_amount__sum'])
+                                    detailsBills.save()
+                                    # save_bills(get_bills=bills, request=request)
+                                    
+                                else:
+                                    pass
+
+                            
                     else:
-                        get_details = DetailsBills.objects.filter(hospital=user.hospital,dish_id=request.data['dish'],
+                        if detailsBills.dish:
+                            get_details = DetailsBills.objects.filter(hospital=user.hospital,dish_id=detailsBills.dish.id,
+                                                                    cash_id=get_cash.id, bills=request.data['bills'],
+                                                                    deleted=False).last()
+                        else:
+                            get_details = DetailsBills.objects.filter(hospital=user.hospital,combo_menu_id=detailsBills.combo_menu.id,
                                                                 cash_id=get_cash.id, bills=request.data['bills'],
                                                                 deleted=False).last()
 
@@ -2923,12 +3011,20 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
 
                         else:
                             # Total des plats déjà servis (historique)
-                            result = DetailsBills.objects.filter(
-                                hospital=user.hospital,
-                                patient=request.data['patient'],
-                                dish__is_delivery=True,
-                                deleted=False
-                            ).aggregate(total_dishes=Sum('quantity_served'))
+                            if detailsBills.dish:
+                                result = DetailsBills.objects.filter(
+                                    hospital=user.hospital,
+                                    patient=request.data['patient'],
+                                    dish__is_delivery=True,
+                                    deleted=False
+                                ).aggregate(total_dishes=Sum('quantity_served'))
+                            else:
+                                result = DetailsBills.objects.filter(
+                                    hospital=user.hospital,
+                                    patient=request.data['patient'],
+                                    combo_menu__is_delivery=True,
+                                    deleted=False
+                                ).aggregate(total_dishes=Sum('quantity_served'))
 
                             if result['total_dishes'] is not None:
                                 total_dishes =  result['total_dishes']
@@ -2941,7 +3037,11 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                             result, cummulative = apply_promotions(detailsBills)
                             
                             if result == True and cummulative == True:
-                                if user.hospital.rules_reduction and detailsBills.dish.is_delivery == True and  user.hospital.use_delivery == True:
+                                if detailsBills.dish:
+                                    is_delivery=detailsBills.dish.is_delivery
+                                else:
+                                    is_delivery=detailsBills.combo_menu.is_delivery
+                                if user.hospital.rules_reduction and is_delivery == True and  user.hospital.use_delivery == True:
                                     
                                     rules = normalize_rules(user.hospital.rules_reduction)
 
@@ -2981,40 +3081,77 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                 detailsBills.cash_id = get_cash.id
                                 detailsBills.timeAt = time.strftime("%H:%M:%S", time.localtime())
                                 detailsBills.save()
-                                
-                                recipes = RecipeIngredient.objects.filter(dish_id = detailsBills.dish.id).filter(deleted=False)
-                                if recipes:
-                                    for recipe in recipes:
-                                        if int(get_price_dish.price) == int(request.data['pun']):
-                                            new_quantity = recipe.quantity
-                                        else:
-                                            new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price) * 10) / 10
-                                        total_quantity = int(request.data['quantity_served']) * int(new_quantity)
-                                        if recipe.ingredient:
-                                            if recipe.ingredient.price_per_unit:
-                                                price = recipe.ingredient.price_per_unit
+                                if detailsBills.dish:
+                                    recipes = RecipeIngredient.objects.filter(dish_id = detailsBills.dish.id).filter(deleted=False)
+                                    if recipes:
+                                        for recipe in recipes:
+                                            if int(get_price_dish.price) == int(request.data['pun']):
+                                                new_quantity = recipe.quantity
                                             else:
+                                                new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price) * 10) / 10
+                                            total_quantity = int(request.data['quantity_served']) * int(new_quantity)
+                                            if recipe.ingredient:
+                                                if recipe.ingredient.price_per_unit:
+                                                    price = recipe.ingredient.price_per_unit
+                                                else:
+                                                    price=0
+                                                impact_price = Decimal(request.data['quantity_served']) * price
+                                                DetailsBillsIngredient.objects.create(hospital = user.hospital, ingredient_id=recipe.ingredient.id, quantity=total_quantity,impact_price=float(impact_price), details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
+                                            else:
+                                                
                                                 price=0
-                                            impact_price = Decimal(request.data['quantity_served']) * price
-                                            DetailsBillsIngredient.objects.create(hospital = user.hospital, ingredient_id=recipe.ingredient.id, quantity=total_quantity,impact_price=float(impact_price), details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
-                                        else:
-                                            
-                                            price=0
-                                            DetailsBillsIngredient.objects.create(hospital = user.hospital, compose_ingredient_id=recipe.compose_ingredient.id, quantity=total_quantity,impact_price=price, details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
+                                                DetailsBillsIngredient.objects.create(hospital = user.hospital, compose_ingredient_id=recipe.compose_ingredient.id, quantity=total_quantity,impact_price=price, details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
 
-                                    total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id,hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
-                                    
-                                    detailsBills.cost_production = total['total_amount__sum']
-                                    detailsBills.margin = float(detailsBills.amount_net) - float(total['total_amount__sum'])
-                                    detailsBills.save()
-                                    # save_bills(get_bills=bills, request=request)
-                                    serializer = self.get_serializer(detailsBills, many=False)
-                                    content = {
-                                        'data': serializer.data,
-                                        'reduction': reduction
-                                    }
-                                    return Response(data=content, status=status.HTTP_201_CREATED)
+                                        total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id,hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
+                                        
+                                        detailsBills.cost_production = total['total_amount__sum']
+                                        detailsBills.margin = float(detailsBills.amount_net) - float(total['total_amount__sum'])
+                                        detailsBills.save()
+                                        # save_bills(get_bills=bills, request=request)
+                                        serializer = self.get_serializer(detailsBills, many=False)
+                                        content = {
+                                            'data': serializer.data,
+                                            'reduction': reduction
+                                        }
+                                        return Response(data=content, status=status.HTTP_201_CREATED)
+                                    else:
+                                        serializer = self.get_serializer(detailsBills, many=False)
+                                        content = {
+                                            'data': serializer.data,
+                                            'reduction': 0
+                                        }
+                                        return Response(data=content, status=status.HTTP_201_CREATED)
                                 else:
+                                    get_all_dish=DetailsComboMenu.objects.filter(combo_menu_id = detailsBills.combo_menu.id, deleted = False)
+                                    for dish in get_all_dish:
+                                        recipes = RecipeIngredient.objects.filter(dish_id = dish.dish.id).filter(deleted=False)
+                                        if recipes:
+                                            for recipe in recipes:
+                                                if int(get_price_dish.price) == int(request.data['pun']):
+                                                    new_quantity = recipe.quantity
+                                                else:
+                                                    new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price) * 10) / 10
+                                                total_quantity = int(request.data['quantity_served']) * int(new_quantity)
+                                                if recipe.ingredient:
+                                                    if recipe.ingredient.price_per_unit:
+                                                        price = recipe.ingredient.price_per_unit
+                                                    else:
+                                                        price=0
+                                                    impact_price = Decimal(request.data['quantity_served']) * price
+                                                    DetailsBillsIngredient.objects.create(hospital = user.hospital, ingredient_id=recipe.ingredient.id, quantity=total_quantity,impact_price=float(impact_price), details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
+                                                else:
+                                                    
+                                                    price=0
+                                                    DetailsBillsIngredient.objects.create(hospital = user.hospital, compose_ingredient_id=recipe.compose_ingredient.id, quantity=total_quantity,impact_price=price, details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
+
+                                            total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id,hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
+                                            
+                                            detailsBills.cost_production = total['total_amount__sum']
+                                            detailsBills.margin = float(detailsBills.amount_net) - float(total['total_amount__sum'])
+                                            detailsBills.save()
+                                            # save_bills(get_bills=bills, request=request)
+                                        else:
+                                            pass
                                     serializer = self.get_serializer(detailsBills, many=False)
                                     content = {
                                         'data': serializer.data,
@@ -3025,39 +3162,74 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                 detailsBills.cash_id = get_cash.id
                                 detailsBills.timeAt = time.strftime("%H:%M:%S", time.localtime())
                                 detailsBills.save()
-                                
-                                recipes = RecipeIngredient.objects.filter(dish_id = detailsBills.dish.id).filter(deleted=False)
-                                if recipes:
-                                    for recipe in recipes:
-                                        if int(get_price_dish.price) == int(request.data['pun']):
-                                            new_quantity = recipe.quantity
-                                        else:
-                                            new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price) * 10) / 10
-                                        total_quantity = int(request.data['quantity_served']) * int(new_quantity)
-                                        if recipe.ingredient:
-                                            if recipe.ingredient.price_per_unit:
-                                                price = recipe.ingredient.price_per_unit
+                                if detailsBills.dish:
+                                    recipes = RecipeIngredient.objects.filter(dish_id = detailsBills.dish.id).filter(deleted=False)
+                                    if recipes:
+                                        for recipe in recipes:
+                                            if int(get_price_dish.price) == int(request.data['pun']):
+                                                new_quantity = recipe.quantity
                                             else:
+                                                new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price) * 10) / 10
+                                            total_quantity = int(request.data['quantity_served']) * int(new_quantity)
+                                            if recipe.ingredient:
+                                                if recipe.ingredient.price_per_unit:
+                                                    price = recipe.ingredient.price_per_unit
+                                                else:
+                                                    price=0
+                                                impact_price = Decimal(request.data['quantity_served']) * price
+                                                DetailsBillsIngredient.objects.create(hospital = user.hospital, ingredient_id=recipe.ingredient.id, quantity=total_quantity,impact_price=float(impact_price), details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
+                                            else:
+                                                
                                                 price=0
-                                            impact_price = Decimal(request.data['quantity_served']) * price
-                                            DetailsBillsIngredient.objects.create(hospital = user.hospital, ingredient_id=recipe.ingredient.id, quantity=total_quantity,impact_price=float(impact_price), details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
-                                        else:
-                                            
-                                            price=0
-                                            DetailsBillsIngredient.objects.create(hospital = user.hospital, compose_ingredient_id=recipe.compose_ingredient.id, quantity=total_quantity,impact_price=price, details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
+                                                DetailsBillsIngredient.objects.create(hospital = user.hospital, compose_ingredient_id=recipe.compose_ingredient.id, quantity=total_quantity,impact_price=price, details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
 
-                                    total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id,hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
-                                    
-                                    detailsBills.cost_production = total['total_amount__sum']
-                                    detailsBills.margin = float(detailsBills.amount_net) - float(total['total_amount__sum'])
-                                    detailsBills.save()
-                                    # save_bills(get_bills=bills, request=request)
-                                    serializer = self.get_serializer(detailsBills, many=False)
-                                    content = {
-                                        'data': serializer.data,
-                                        'reduction': 0
-                                    }
-                                    return Response(data=content, status=status.HTTP_201_CREATED)
+                                        total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id,hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
+                                        
+                                        detailsBills.cost_production = total['total_amount__sum']
+                                        detailsBills.margin = float(detailsBills.amount_net) - float(total['total_amount__sum'])
+                                        detailsBills.save()
+                                        # save_bills(get_bills=bills, request=request)
+                                        serializer = self.get_serializer(detailsBills, many=False)
+                                        content = {
+                                            'data': serializer.data,
+                                            'reduction': 0
+                                        }
+                                        return Response(data=content, status=status.HTTP_201_CREATED)
+                                    else:
+                                        get_all_dish=DetailsComboMenu.objects.filter(combo_menu_id = detailsBills.combo_menu.id, deleted = False)
+                                        for dish in get_all_dish:
+                                            recipes = RecipeIngredient.objects.filter(dish_id = dish.dish.id).filter(deleted=False)
+                                            if recipes:
+                                                for recipe in recipes:
+                                                    if int(get_price_dish.price) == int(request.data['pun']):
+                                                        new_quantity = recipe.quantity
+                                                    else:
+                                                        new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price) * 10) / 10
+                                                    total_quantity = int(request.data['quantity_served']) * int(new_quantity)
+                                                    if recipe.ingredient:
+                                                        if recipe.ingredient.price_per_unit:
+                                                            price = recipe.ingredient.price_per_unit
+                                                        else:
+                                                            price=0
+                                                        impact_price = Decimal(request.data['quantity_served']) * price
+                                                        DetailsBillsIngredient.objects.create(hospital = user.hospital, ingredient_id=recipe.ingredient.id, quantity=total_quantity,impact_price=float(impact_price), details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
+                                                    else:
+                                                        
+                                                        price=0
+                                                        DetailsBillsIngredient.objects.create(hospital = user.hospital, compose_ingredient_id=recipe.compose_ingredient.id, quantity=total_quantity,impact_price=price, details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
+
+                                                total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id,hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
+                                                
+                                                detailsBills.cost_production = total['total_amount__sum']
+                                                detailsBills.margin = float(detailsBills.amount_net) - float(total['total_amount__sum'])
+                                                detailsBills.save()
+                                                # save_bills(get_bills=bills, request=request)
+                                                serializer = self.get_serializer(detailsBills, many=False)
+                                                content = {
+                                                    'data': serializer.data,
+                                                    'reduction': 0
+                                                }
+                                                return Response(data=content, status=status.HTTP_201_CREATED)
                                 else:
                                     serializer = self.get_serializer(detailsBills, many=False)
                                     content = {
@@ -3066,7 +3238,11 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                     }
                                     return Response(data=content, status=status.HTTP_201_CREATED)
                             else:
-                                if user.hospital.rules_reduction and detailsBills.dish.is_delivery == True and user.hospital.use_delivery == True:
+                                if detailsBills.dish:
+                                    is_delivery=detailsBills.dish.is_delivery
+                                else:
+                                    is_delivery=detailsBills.combo_menu.is_delivery
+                                if user.hospital.rules_reduction and is_delivery == True and user.hospital.use_delivery == True:
                                     rules = normalize_rules(user.hospital.rules_reduction)
 
                                     future_remise = get_future_remise_notification(count_dish, rules)
@@ -3103,39 +3279,78 @@ class DetailsBillsViewSet(viewsets.ModelViewSet):
                                 detailsBills.cash_id = get_cash.id
                                 detailsBills.timeAt = time.strftime("%H:%M:%S", time.localtime())
                                 detailsBills.save()
-                                recipes = RecipeIngredient.objects.filter(dish_id = detailsBills.dish.id).filter(deleted=False)
-                                if recipes:
-                                    for recipe in recipes:
-                                        if int(get_price_dish.price) == int(request.data['pun']):
-                                            new_quantity = recipe.quantity
-                                        else:
-                                            new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price) * 10) / 10
-                                        total_quantity = int(request.data['quantity_served']) * int(new_quantity)
-                                        
-                                        if recipe.ingredient:
-                                            if recipe.ingredient.price_per_unit:
-                                                price = recipe.ingredient.price_per_unit
+                                if detailsBills.dish:
+                                    recipes = RecipeIngredient.objects.filter(dish_id = detailsBills.dish.id).filter(deleted=False)
+                                    if recipes:
+                                        for recipe in recipes:
+                                            if int(get_price_dish.price) == int(request.data['pun']):
+                                                new_quantity = recipe.quantity
                                             else:
-                                                price=0
-                                            impact_price = Decimal(request.data['quantity_served']) * price
-                                            DetailsBillsIngredient.objects.create(hospital = user.hospital, ingredient_id=recipe.ingredient.id, quantity=total_quantity,impact_price=float(impact_price), details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
-                                        else:
+                                                new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price) * 10) / 10
+                                            total_quantity = int(request.data['quantity_served']) * int(new_quantity)
                                             
-                                            price=0
-                                            DetailsBillsIngredient.objects.create(hospital = user.hospital, compose_ingredient_id=recipe.compose_ingredient.id, quantity=total_quantity,impact_price=price, details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
+                                            if recipe.ingredient:
+                                                if recipe.ingredient.price_per_unit:
+                                                    price = recipe.ingredient.price_per_unit
+                                                else:
+                                                    price=0
+                                                impact_price = Decimal(request.data['quantity_served']) * price
+                                                DetailsBillsIngredient.objects.create(hospital = user.hospital, ingredient_id=recipe.ingredient.id, quantity=total_quantity,impact_price=float(impact_price), details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
+                                            else:
+                                                
+                                                price=0
+                                                DetailsBillsIngredient.objects.create(hospital = user.hospital, compose_ingredient_id=recipe.compose_ingredient.id, quantity=total_quantity,impact_price=price, details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
 
-                                    total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id, hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
-                                    detailsBills.cost_production = total['total_amount__sum']
-                                    detailsBills.margin = float(detailsBills.amount_net) - float(total['total_amount__sum'])
-                                    detailsBills.save()
-                                    # save_bills(get_bills=bills, request=request)
-                                    serializer = self.get_serializer(detailsBills, many=False)
-                                    content = {
-                                        'data': serializer.data,
-                                        'reduction': reduction
-                                    }
-                                    return Response(data=content, status=status.HTTP_201_CREATED)
+                                        total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id, hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
+                                        detailsBills.cost_production = total['total_amount__sum']
+                                        detailsBills.margin = float(detailsBills.amount_net) - float(total['total_amount__sum'])
+                                        detailsBills.save()
+                                        # save_bills(get_bills=bills, request=request)
+                                        serializer = self.get_serializer(detailsBills, many=False)
+                                        content = {
+                                            'data': serializer.data,
+                                            'reduction': reduction
+                                        }
+                                        return Response(data=content, status=status.HTTP_201_CREATED)
+                                    else:
+                                        serializer = self.get_serializer(detailsBills, many=False)
+                                        content = {
+                                            'data': serializer.data,
+                                            'reduction': reduction
+                                        }
+                                        return Response(data=content, status=status.HTTP_201_CREATED)
                                 else:
+                                    get_all_dish=DetailsComboMenu.objects.filter(combo_menu_id = detailsBills.combo_menu.id, deleted = False)
+                                    for dish in get_all_dish:
+                                        recipes = RecipeIngredient.objects.filter(dish_id = dish.dish.id).filter(deleted=False)
+                                        if recipes:
+                                            for recipe in recipes:
+                                                if int(get_price_dish.price) == int(request.data['pun']):
+                                                    new_quantity = recipe.quantity
+                                                else:
+                                                    new_quantity = math.ceil(int(request.data['pun']) * int(recipe.quantity) / int(get_price_dish.price) * 10) / 10
+                                                total_quantity = int(request.data['quantity_served']) * int(new_quantity)
+                                                
+                                                if recipe.ingredient:
+                                                    if recipe.ingredient.price_per_unit:
+                                                        price = recipe.ingredient.price_per_unit
+                                                    else:
+                                                        price=0
+                                                    impact_price = Decimal(request.data['quantity_served']) * price
+                                                    DetailsBillsIngredient.objects.create(hospital = user.hospital, ingredient_id=recipe.ingredient.id, quantity=total_quantity,impact_price=float(impact_price), details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
+                                                else:
+                                                    
+                                                    price=0
+                                                    DetailsBillsIngredient.objects.create(hospital = user.hospital, compose_ingredient_id=recipe.compose_ingredient.id, quantity=total_quantity,impact_price=price, details_bills_id = detailsBills.id, total_amount=Decimal(total_quantity) * price)
+
+                                            total = DetailsBillsIngredient.objects.filter(details_bills_id=detailsBills.id, hospital=user.hospital, deleted = False).aggregate(Sum('total_amount'))
+                                            detailsBills.cost_production = total['total_amount__sum']
+                                            detailsBills.margin = float(detailsBills.amount_net) - float(total['total_amount__sum'])
+                                            detailsBills.save()
+                                            # save_bills(get_bills=bills, request=request)
+                                            
+                                        else:
+                                            pass
                                     serializer = self.get_serializer(detailsBills, many=False)
                                     content = {
                                         'data': serializer.data,
@@ -4657,7 +4872,6 @@ class BillViewSet(viewsets.ModelViewSet):
 
             # bill['cost_production'] = total_cost
             # bill['margin'] = bill['turnover'] - total_cost
-            # print(cost_data,bill['cost_production'], bill['margin'])
                 
         
             # get_product = Product.objects.filter(id=request.data['product_available']).last()
@@ -4707,7 +4921,6 @@ class BillViewSet(viewsets.ModelViewSet):
             startdate = datetime.strptime(request.data['start_date'], "%Y-%m-%d").date()
             enddate = datetime.strptime(request.data['end_date'], "%Y-%m-%d").date()
 
-        # print(datetime.strptime(startdate, "%Y-%m-%d").date().year,enddate)
         if 'hospital' in self.request.query_params:
             user_hospital = Hospital.objects.filter(id=self.request.query_params.get("hospital"), deleted = False).last()
         else:
@@ -4723,7 +4936,6 @@ class BillViewSet(viewsets.ModelViewSet):
         serializer = BillsSerializer(get_details_bill, many=True)
         # act_update.append(serializer.data[0])
         # get_bill = Bills.objects.filter(patient_id=request.data['patient'], bill_type='medical_act', createdAt__range=[startdate,enddate]).filter(deleted=False)
-        # print(get_bill)
         # serializer = BillsSerializer(get_bill, many=True)
 
         content = {'content': serializer.data}
@@ -4747,7 +4959,6 @@ class BillViewSet(viewsets.ModelViewSet):
         start_date = datetime.strptime(
             request.data['start_date'], "%Y-%m-%d"
         ).date()
-        # print(first_day, last_day)
         if start_date.year == today.year and start_date.month == today.month:
             
             startdate = get_first_date_of_month(year=int(year_month['year']), month=int(year_month['month']))
@@ -6457,14 +6668,20 @@ class DetailsSuppliesViewSet(viewsets.ModelViewSet):
                 detailsSupplies.supplies = get_supplies
                 unit_cost = detailsSupplies.total_amount / detailsSupplies.quantity
                 detailsSupplies.unit_price = unit_cost
-                # if detailsSupplies.ingredient.stock_quantity > 0:
-                #     old_value = Decimal(detailsSupplies.ingredient.stock_quantity) * Decimal(detailsSupplies.ingredient.price_per_unit)
-                #     new_value = Decimal(detailsSupplies.quantity) * Decimal(unit_cost)
-                #     total_qty = Decimal(detailsSupplies.ingredient.stock_quantity) + Decimal(detailsSupplies.quantity)
-                #     price = (old_value + new_value) / total_qty
-                #     detailsSupplies.cmup = price.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-                # else:
-                #     detailsSupplies.cmup = Decimal(unit_cost).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                get_stock = Stock.objects.filter(hospital=user.hospital, ingredient_id=detailsSupplies.ingredient_id,
+                    storage_depots_id=request.data['storage_depots'], deleted = False
+                ).last()
+                get_ingredient = Ingredient.objects.filter(
+                        id=detailsSupplies.ingredient_id, deleted = False
+                    ).last()
+                if get_stock.quantity > 0:
+                    old_value = Decimal(get_stock.quantity) * Decimal(get_ingredient.price_per_unit)
+                    new_value = Decimal(detailsSupplies.quantity) * Decimal(unit_cost)
+                    total_qty = Decimal(get_stock.quantity) + Decimal(detailsSupplies.quantity)
+                    price = (old_value + new_value) / total_qty
+                    detailsSupplies.cmup = price.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                else:
+                    detailsSupplies.cmup = Decimal(unit_cost).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
                 detailsSupplies.user_id = user.id
                 detailsSupplies.timeAt = time.strftime(
                     "%H:%M:%S", time.localtime()
@@ -6524,7 +6741,7 @@ class DetailsSuppliesViewSet(viewsets.ModelViewSet):
                 detailsSupplies.timeAt = time.strftime(
                     "%H:%M:%S", time.localtime()
                 )
-                detailsSupplies.save()
+                
 
                 get_stock = Stock.objects.filter(hospital=user.hospital, ingredient_id=detailsSupplies.ingredient_id,
                     storage_depots_id=request.data['storage_depots'], deleted = False
@@ -6533,26 +6750,26 @@ class DetailsSuppliesViewSet(viewsets.ModelViewSet):
                         id=detailsSupplies.ingredient_id, deleted = False
                     ).last()
                 if get_stock:
-                    get_stock.stock_quantity += detailsSupplies.quantity
+                    get_stock.quantity += detailsSupplies.quantity
                     if detailsSupplies.quantity_two:
-                        get_stock.stock_quantity_two += detailsSupplies.quantity_two
+                        get_stock.quantity_two += detailsSupplies.quantity_two
                     get_stock.save()
                     
                     unit_cost = detailsSupplies.arrival_price / detailsSupplies.quantity
-                    if get_stock.stock_quantity > 0:
-                        old_value = Decimal(get_stock.stock_quantity) * Decimal(get_ingredient.price_per_unit)
+                    if get_stock.quantity > 0:
+                        old_value = Decimal(get_stock.quantity) * Decimal(get_ingredient.price_per_unit)
                         new_value = Decimal(detailsSupplies.quantity) * Decimal(unit_cost)
 
-                        total_qty = Decimal(get_stock.stock_quantity) + Decimal(detailsSupplies.quantity)
+                        total_qty = Decimal(get_stock.quantity) + Decimal(detailsSupplies.quantity)
                         price = (old_value + new_value) / total_qty
 
-                        get_ingredient.cmup = price.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                        detailsSupplies.cmup = price.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
                     else:
                         pass
 
                 else:
                     Stock.objects.create(hospital=user.hospital,ingredient_id=detailsSupplies.ingredient_id, quantity = detailsSupplies.quantity,quantity_two = detailsSupplies.quantity_two, storage_depots_id=request.data['storage_depots'])
-                        
+                detailsSupplies.save()  
                 get_ingredient.last_paid_price=detailsSupplies.total_amount
                 get_ingredient.save()
                 
@@ -7403,7 +7620,9 @@ class InventoryViewSet(viewsets.ModelViewSet):
                                                                 storage_depots_id=request.data[
                                                                     'storage_depots'], deleted = False).last()
                 get_details_stock.quantity = inv.quantity_adjusted
+                get_details_stock.cmup = inv.cmup
                 get_details_stock.save()
+                
             # get_hospital = Hospital.objects.filter(id=self.request.user.hospital.id).last()
             # get_hospital.is_inventory = False
             # get_hospital.save()
@@ -7433,7 +7652,7 @@ class InventoryViewSet(viewsets.ModelViewSet):
     def delete_empty(self, request, pk=None):
         supply = self.get_object()
 
-        has_lines = DetailsInventory.objects.filter(Inventory=supply, hospital=self.request.user.hospital, deleted = False).exists()
+        has_lines = DetailsInventory.objects.filter(inventory=supply, hospital=self.request.user.hospital, deleted = False).exists()
 
         if has_lines:
             return Response(
@@ -7503,13 +7722,42 @@ class DetailsInventoryViewSet(viewsets.ModelViewSet):
                 get_details_inventory.amount = request.data['amount']
                 get_details_inventory.amount_adjusted = request.data['amount_adjusted']
                 get_details_inventory.quantity_adjusted = request.data['quantity_adjusted']
-                get_details_inventory.save()
+                
+                get_stock = Stock.objects.filter(hospital=user.hospital, ingredient_id=get_details_inventory.ingredient_id,
+                    storage_depots_id=request.data['storage_depots'], deleted = False
+                ).last()
+                get_ingredient = Ingredient.objects.filter(
+                        id=get_details_inventory.ingredient_id, deleted = False
+                    ).last()
+                unit_cost = get_details_inventory.amount_adjusted / get_details_inventory.quantity_adjusted
+                old_value = Decimal(get_stock.quantity) * Decimal(get_ingredient.price_per_unit)
+                new_value = Decimal(get_details_inventory.quantity_adjusted) * Decimal(unit_cost)
 
+                total_qty = Decimal(get_stock.quantity) + Decimal(get_details_inventory.quantity_adjusted)
+                price = (old_value + new_value) / total_qty
+
+                get_details_inventory.cmup = price.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                get_details_inventory.save()
                 return Response(status=status.HTTP_201_CREATED)
             else:
                 details_inventory = details_inventory_form.save()
                 details_inventory.hospital = user.hospital
                 details_inventory.user_id = user.id
+                
+                get_stock = Stock.objects.filter(hospital=user.hospital, ingredient_id=details_inventory.ingredient_id,
+                    storage_depots_id=request.data['storage_depots'], deleted = False
+                ).last()
+                get_ingredient = Ingredient.objects.filter(
+                        id=details_inventory.ingredient_id, deleted = False
+                    ).last()
+                unit_cost = details_inventory.amount_adjusted / details_inventory.quantity_adjusted
+                old_value = Decimal(get_stock.quantity) * Decimal(get_ingredient.price_per_unit)
+                new_value = Decimal(details_inventory.quantity_adjusted) * Decimal(unit_cost)
+
+                total_qty = Decimal(get_stock.quantity) + Decimal(details_inventory.quantity_adjusted)
+                price = (old_value + new_value) / total_qty
+
+                details_inventory.cmup = price.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
                 details_inventory.save()
                 return Response(status=status.HTTP_201_CREATED)
         errors = {**details_inventory_form.errors}

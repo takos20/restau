@@ -1,7 +1,7 @@
 from django.urls import path
 from django.conf.urls import include
 from rest_framework import routers
-from restaurants.views import ComposeIngredientViewSet, ComposePreparationViewSet, DetailsComposeIngredientViewSet, DetailsComposePreparationViewSet, DishPreparationViewSet, DishViewSet, IngredientViewSet, PromotionActionViewSet, PromotionRuleViewSet, PromotionViewSet, RecipeIngredientViewSet, RecipesViewSet, StructureArticleViewSet
+from restaurants.views import ComposeIngredientViewSet, ComboMenuViewSet, DetailsComboMenuViewSet, ComposePreparationViewSet, DetailsComposeIngredientViewSet, DetailsComposePreparationViewSet, DishPreparationViewSet, DishViewSet, IngredientViewSet, PromotionActionViewSet, PromotionRuleViewSet, PromotionViewSet, RecipeIngredientViewSet, RecipesViewSet, StructureArticleViewSet
 router = routers.DefaultRouter(trailing_slash=False)
 router.register(r"promotions", PromotionViewSet)
 router.register(r"promotion_rules", PromotionRuleViewSet)
@@ -13,6 +13,8 @@ router.register(r"compose_ingredients", ComposeIngredientViewSet)
 router.register(r"compose_preparations", ComposePreparationViewSet)
 router.register(r"recipe_ingredients", RecipeIngredientViewSet)
 router.register(r"details_compose_ingredients", DetailsComposeIngredientViewSet)
+router.register(r"combo_menus", ComboMenuViewSet)
+router.register(r"details_combo_menus", DetailsComboMenuViewSet)
 router.register(r"details_compose_preparations", DetailsComposePreparationViewSet)
 router.register(r"ingredients", IngredientViewSet)
 router.register(r"structure_articles", StructureArticleViewSet)

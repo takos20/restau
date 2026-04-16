@@ -4,10 +4,10 @@ from hospital.forms import RecipesForm
 from rest_framework import viewsets
 
 from hospital.helpers import checkBool, checkContent, checkNumber, destocker
-from hospital.models import Category, CategoryTranslation, ComposeIngredient, ComposeIngredientTranslation, ComposePreparation, ComposePreparationTranslation, DetailsComposeIngredient, DetailsComposePreparation, Dish, DishPreparation, DishTranslation, Ingredient, IngredientTranslation, Promotion, PromotionAction, PromotionRule, PromotionTranslation, RecipeIngredient, Recipes, Stock, Storage_depots, StructureArticle, User
-from hospital.serializers import ComposeIngredientSerializer, ComposePreparationSerializer, DetailsComposeIngredientSerializer, DetailsComposePreparationSerializer, DishSerializer, IngredientSerializer, PromotionActionSerializer, PromotionRuleSerializer, PromotionSerializer, RecipeIngredientSerializer, DishPreparationSerializer, RecipesSerializer, StructureArticleSerializer
-from restaurants.filters import ComposeIngredientFilter, ComposePreparationFilter, DetailsComposeIngredientFilter, DetailsComposePreparationFilter, DishFilter, DishPreparationFilter, IngredientFilter, PromotionActionFilter, PromotionFilter, PromotionRuleFilter, RecipeIngredientFilter, StructureArticleFilter
-from restaurants.forms import ComposeIngredientForm, ComposePreparationForm, DetailsComposeIngredientForm, DetailsComposePreparationForm, DishForm, DishPreparationForm, IngredientForm, PromotionActionForm, PromotionForm, PromotionRuleForm, RecipeIngredientForm, StructureArticleForm
+from hospital.models import Category, CategoryTranslation, ComboMenu, ComboMenuTranslation, ComposeIngredient, ComposeIngredientTranslation, ComposePreparation, ComposePreparationTranslation, DetailsComboMenu, DetailsComposeIngredient, DetailsComposePreparation, Dish, DishPreparation, DishTranslation, Ingredient, IngredientTranslation, Promotion, PromotionAction, PromotionRule, PromotionTranslation, RecipeIngredient, Recipes, Stock, Storage_depots, StructureArticle, User
+from hospital.serializers import ComboMenuSerializer, ComposeIngredientSerializer, ComposePreparationSerializer, DetailsComboMenuSerializer, DetailsComposeIngredientSerializer, DetailsComposePreparationSerializer, DishSerializer, IngredientSerializer, PromotionActionSerializer, PromotionRuleSerializer, PromotionSerializer, RecipeIngredientSerializer, DishPreparationSerializer, RecipesSerializer, StructureArticleSerializer
+from restaurants.filters import ComboMenuFilter, ComposeIngredientFilter, ComposePreparationFilter, DetailsComboMenuFilter, DetailsComposeIngredientFilter, DetailsComposePreparationFilter, DishFilter, DishPreparationFilter, IngredientFilter, PromotionActionFilter, PromotionFilter, PromotionRuleFilter, RecipeIngredientFilter, StructureArticleFilter
+from restaurants.forms import ComboMenuForm, ComposeIngredientForm, ComposePreparationForm, DetailsComboMenuForm, DetailsComposeIngredientForm, DetailsComposePreparationForm, DishForm, DishPreparationForm, IngredientForm, PromotionActionForm, PromotionForm, PromotionRuleForm, RecipeIngredientForm, StructureArticleForm
 from rest_framework.decorators import action, permission_classes, api_view
 from django.shortcuts import render
 from collections import OrderedDict
@@ -23,7 +23,7 @@ from rest_framework import status
 import pandas as pd
 
 class DishViewSet(viewsets.ModelViewSet):
-    queryset = Dish.objects.prefetch_related("prices")
+    queryset = Dish.objects.prefetch_related("prices").filter(deleted=False)
     serializer_class = DishSerializer
     renderer_classes = [JSONRenderer]
     permission_classes = (IsAuthenticated, DjangoModelPermissions)
@@ -111,10 +111,40 @@ class DishViewSet(viewsets.ModelViewSet):
     def get_all_dishes(self, request, *args, **kwargs):
 
         queryset = self.filter_queryset(
-            Dish.objects.select_related('recipes').filter(is_active=True)
+            Dish.objects.select_related('recipes').filter(is_active=True, deleted=False)
         )
         serializer = self.get_serializer(queryset, many=True)
         return Response({'content': serializer.data})
+
+    @action(detail=False, methods=['get'], url_path='alls')
+    def get_all(self, request, *args, **kwargs):
+        title_query = self.request.query_params.get("name_language")
+        results = []
+
+        main_queryset = self.filter_queryset(self.get_queryset())
+
+        # MAIN QUERYSET
+        if title_query:
+            main_queryset = main_queryset.filter(is_active=True,
+                name_language__icontains=title_query  # adapte à ton champ
+            )
+
+        if main_queryset.exists():
+            results += self.get_serializer(main_queryset, many=True).data
+
+        # COMBO MENU
+        combo_menu = ComboMenu.objects.filter(deleted=False, is_active=True)
+
+        if title_query:
+            combo_menu = combo_menu.filter(
+                translations__name__icontains=title_query
+            ).distinct()
+
+        if combo_menu.exists():
+            results += ComboMenuSerializer(
+                combo_menu, many=True
+            ).data
+        return Response({'content': results}, status=status.HTTP_200_OK)
     
     @action(detail=False, methods=['get'], url_path='statistics')
     def statistics(self, request, *args, **kwargs):
@@ -896,7 +926,7 @@ class IngredientViewSet(viewsets.ModelViewSet):
         if title_query:
             compose_ingredient = compose_ingredient.filter(
                 translations__name__icontains=title_query
-            )
+            ).distinct()
 
         if compose_ingredient.exists():
             results += ComposeIngredientSerializer(
@@ -933,7 +963,7 @@ class IngredientViewSet(viewsets.ModelViewSet):
         if title_query:
             compose_preparation = compose_preparation.filter(
                 translations__name__icontains=title_query
-            )
+            ).distinct()
 
         if compose_preparation.exists():
             results += ComposePreparationSerializer(
@@ -1349,6 +1379,138 @@ class ComposeIngredientViewSet(viewsets.ModelViewSet):
         errors = {"name": ["This field already exists."]}
         if 'name' in data:
             obj = ComposeIngredient.objects.filter(translations__name__icontains=data['name'], deleted = False)
+            if obj:
+                return Response(status=status.HTTP_200_OK)
+            else:
+                return Response(status=status.HTTP_404_NOT_FOUND)
+
+        return Response(data=errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=False, methods=['get'], url_path='current', permission_classes=[AllowAny])
+    def check_current(self, request, *args, **kwargs):
+
+        recipe = RecipeIngredient.objects.order_by('dish_id').distinct('dish_id')
+
+        serializer = self.get_serializer(recipe, many=True)
+        content = {'content':serializer.data}
+        return Response(data=content, status=status.HTTP_200_OK)    
+
+class ComboMenuViewSet(viewsets.ModelViewSet):
+    queryset = ComboMenu.objects.prefetch_related("price_combos").filter(deleted=False)
+    serializer_class = ComboMenuSerializer
+    renderer_classes = [JSONRenderer]
+    permission_classes = (IsAuthenticated, DjangoModelPermissions)
+    pagination_class = CustomPagination
+    filterset_class = ComboMenuFilter
+    filter_backends = (filters.DjangoFilterBackend,)
+
+    # def get_queryset(self):
+    #     user = self.request.user
+
+    #     qs = (
+    #         ComboMenu.objects
+    #         .select_related('hospital')   # très important
+    #     )
+
+    #     if user.hospital_id:
+    #         qs = qs.filter(hospital_id=user.hospital_id)
+
+    #     return qs
+
+    def get_permissions(self):
+        """
+        Instantiates and returns the list of permissions that this view requires.
+        """
+        if self.action == 'create':
+            user = self.request.user
+            if isinstance(user, User):
+                permission_classes = [IsAuthenticated]
+            else:
+                permission_classes = [AllowAny]
+        else:
+            permission_classes = [IsAuthenticated]
+        return [permission() for permission in permission_classes]
+
+    def create(self, request, *args, **kwargs):
+        user=self.request.user
+        obj_form = ComboMenuForm(request.data)
+        if obj_form.is_valid():
+            get_combo = ComboMenu.objects.filter(id=request.data['combo_menu'], deleted = False).last()
+            get_combo.name_language = request.data['name_language']
+            # get_compose.stock_quantity = request.data['stock_quantity']
+            get_combo.save()
+            
+            # for ingredient in get_ingredient:
+            #     destocker(ingredient.ingredient, ingredient.quantity, get_ingredient.id, hospital = user.hospital, source="SUP DISH")
+            # obj = obj_form.save()
+            # obj.hospital = self.request.user.hospital
+            # obj.save()
+            serializer = self.get_serializer(get_combo, many=False)
+            return Response(data=serializer.data, status=status.HTTP_201_CREATED)
+        errors = {**obj_form.errors}
+        return Response(data=errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, *args, **kwargs):
+        user=self.request.user
+        obj = self.get_object()
+        obj_form = ComboMenuForm(request.data, instance=obj)
+        if obj_form.is_valid():
+            obj = obj_form.save()
+            obj.save()
+            serializer = self.get_serializer(obj, many=False)
+            return Response(data=serializer.data, status=status.HTTP_200_OK)
+        errors = {**obj_form.errors}
+        return Response(data=errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, *args, **kwargs):
+        obj = self.get_object()
+        obj.deleted = True
+        obj.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['get'], url_path='all')
+    def get_all_exp(self, request, *args, **kwargs):
+        
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True, ).data
+        content = {'content': serializer}
+        # patient_id = self.request.query_params.get("patient_id")
+        # get_bills = Bills.objects.filter(patient_id=patient_id).aggregate(Sum('balance'))['balance__sum']
+        # content = {'content': {'solde_patient': get_bills}}
+        return Response(data=content, status=status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['DELETE'], url_path='delete-empty')
+    def delete_empty(self, request, pk=None):
+        supply = self.get_object()
+        has_lines = DetailsComboMenu.objects.filter(combo_menu=supply, deleted = False).exists()
+
+        if has_lines:
+            return Response(
+                {"detail": "Cannot delete, lines exist."},
+                status=status.HTTP_200_OK
+            )
+
+        supply.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['post'], url_path='create-empty')
+    def create_empty(self, request):
+        lines = ComboMenu.objects.annotate(
+            line_count=Count('combo_menus'),
+        ).filter(line_count=0, user_id=request.user.id)
+        lines.delete()
+
+        supply = ComboMenu.objects.create(
+            user_id = request.user.id
+        )
+        return Response(data={"id": supply.id}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], url_path='name/exists', permission_classes=[AllowAny])
+    def check_obj(self, request, *args, **kwargs):
+        data = request.data
+        errors = {"name": ["This field already exists."]}
+        if 'name' in data:
+            obj = ComboMenu.objects.filter(translations__name__icontains=data['name'], deleted = False)
             if obj:
                 return Response(status=status.HTTP_200_OK)
             else:
@@ -1855,7 +2017,111 @@ class DetailsComposeIngredientViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(recipe, many=True)
         content = {'content':serializer.data}
         return Response(data=content, status=status.HTTP_200_OK)    
-     
+
+   
+class DetailsComboMenuViewSet(viewsets.ModelViewSet):
+    queryset = DetailsComboMenu.objects.filter(deleted=False)
+    serializer_class = DetailsComboMenuSerializer
+    renderer_classes = [JSONRenderer]
+    permission_classes = (IsAuthenticated, DjangoModelPermissions)
+    pagination_class = CustomPagination
+    filterset_class = DetailsComboMenuFilter
+    filter_backends = (filters.DjangoFilterBackend,)
+
+    def get_permissions(self):
+        """
+        Instantiates and returns the list of permissions that this view requires.
+        """
+        if self.action == 'create':
+            user = self.request.user
+            if isinstance(user, User):
+                permission_classes = [IsAuthenticated]
+            else:
+                permission_classes = [AllowAny]
+        else:
+            permission_classes = [IsAuthenticated]
+        return [permission() for permission in permission_classes]
+
+    def create(self, request, *args, **kwargs):
+        obj_form = DetailsComboMenuForm(request.data)
+        user=request.user
+        
+        if obj_form.is_valid():
+            get_combo=DetailsComboMenu.objects.filter(combo_menu = request.data['combo_menu'], dish_id=request.data['dish'], deleted = False).last()
+
+            if get_combo:
+                get_combo.quantity=request.data['quantity']
+                get_combo.save()
+                obj=get_combo
+            else:
+                obj = obj_form.save()
+                obj.combo_menu_id = request.data['combo_menu']
+                obj.save()
+            get_obj = ComboMenu.objects.filter(id = request.data['combo_menu'], deleted = False).last()
+            for translate in self.request.data['name_language']:
+                get_translate = ComboMenuTranslation.objects.filter(combo_menu_id=get_obj.id, language=translate['language'], deleted = False).last()
+                if get_translate:
+                    get_translate.name = translate['name']
+                    get_translate.save()
+                else:
+                    ComboMenuTranslation.objects.create(user=self.request.user, combo_menu_id=get_obj.id, language=translate['language'], name = translate['name'])
+            # get_obj.user = user
+            get_obj.name_language = request.data['name_language']
+            get_obj.save()
+            serializer = self.get_serializer(obj, many=False)
+            return Response(data=serializer.data, status=status.HTTP_201_CREATED)
+        errors = {**obj_form.errors}
+        return Response(data=errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, *args, **kwargs):
+        obj = self.get_object()
+        obj_form = DetailsComboMenuForm(request.data, instance=obj)
+        if obj_form.is_valid():
+            obj = obj_form.save()
+            obj.save()
+            serializer = self.get_serializer(obj, many=False)
+            return Response(data=serializer.data, status=status.HTTP_200_OK)
+        errors = {**obj_form.errors}
+        return Response(data=errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, *args, **kwargs):
+        obj = self.get_object()
+        obj.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['get'], url_path='all')
+    def get_all_exp(self, request, *args, **kwargs):
+        
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True, ).data
+        content = {'content': serializer}
+        # patient_id = self.request.query_params.get("patient_id")
+        # get_bills = Bills.objects.filter(patient_id=patient_id).aggregate(Sum('balance'))['balance__sum']
+        # content = {'content': {'solde_patient': get_bills}}
+        return Response(data=content, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=['post'], url_path='title/exists', permission_classes=[AllowAny])
+    def check_obj(self, request, *args, **kwargs):
+        data = request.data
+        errors = {"title": ["This field already exists."]}
+        if 'title' in data:
+            obj = RecipeIngredient.objects.filter(title__icontains=data['title'], deleted = False)
+            if obj:
+                return Response(status=status.HTTP_200_OK)
+            else:
+                return Response(status=status.HTTP_404_NOT_FOUND)
+
+        return Response(data=errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=False, methods=['get'], url_path='current', permission_classes=[AllowAny])
+    def check_current(self, request, *args, **kwargs):
+
+        recipe = RecipeIngredient.objects.order_by('dish_id').distinct('dish_id')
+
+        serializer = self.get_serializer(recipe, many=True)
+        content = {'content':serializer.data}
+        return Response(data=content, status=status.HTTP_200_OK)    
+
 class DetailsComposePreparationViewSet(viewsets.ModelViewSet):
     queryset = DetailsComposePreparation.objects.filter(deleted=False)
     serializer_class = DetailsComposePreparationSerializer

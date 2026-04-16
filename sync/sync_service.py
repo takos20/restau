@@ -177,7 +177,6 @@ class SyncService:
             url = f"{self.config.remote_api_url}/sync/model/{model_name.lower()}/batch/create"
 
             response = self.session.post(url, json={"objects": payload, "hospital_id":self.config.hospital.id})
-            print(response.json())
             if response.status_code == 200:
                 results['success'] += len(batch)
             else:
@@ -234,7 +233,6 @@ class SyncService:
             url = f"{self.config.remote_api_url}/sync/model/{model_name.lower()}/create"
 
             response = self.session.post(url, json=data)
-            print(response.json())
             if response.status_code in [200, 201]:
                 sync_log.status = 'SUCCESS'
                 sync_log.synced_at = timezone.now()
@@ -272,7 +270,6 @@ class SyncService:
         Args:
             force: Forcer la sync même si auto_sync est désactivé
         """
-        print(self.config.is_active)
         if not self.config.is_active:
             logging.getLogger('errors_file').info(msg={"error": f"Sync désactivée pour hospital {self.hospital_id}"})
             return
@@ -291,7 +288,6 @@ class SyncService:
         try:
             # Pour chaque modèle à synchroniser
             for model_name in self.config.models_to_sync:
-                print(model_name)
                 try:
                     model_results = self._download_model(model_name)
                     results['success'] += model_results['success']
@@ -327,7 +323,6 @@ class SyncService:
             local_objs = {o.uuid: o for o in Model.objects.filter(uuid__in=uuids, hospital_id=self.hospital_id)}
         else:
             local_objs = {o.uuid: o for o in Model.objects.filter(uuid__in=uuids)}
-        print(remote_objects)
         for remote_data in remote_objects:
             uuid = remote_data.get("uuid")
             if not uuid:
@@ -409,7 +404,6 @@ class SyncService:
         
         try:
             app_label, model = model_name.split(".")
-            print(model_name.split("."))
             Model = apps.get_model(app_label, model.lower())
             
         except LookupError:
@@ -427,8 +421,6 @@ class SyncService:
         params = {"sync_version": last_version}
 
         url = f"{self.config.remote_api_url}/sync/model/{model.lower()}/list"
-        
-        print(url)
         # Ajouter hospital_id seulement si le modèle le supporte
         if has_hospital:
             params['hospital_id'] = self.hospital_id
