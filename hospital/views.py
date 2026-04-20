@@ -6674,7 +6674,7 @@ class DetailsSuppliesViewSet(viewsets.ModelViewSet):
                 get_ingredient = Ingredient.objects.filter(
                         id=detailsSupplies.ingredient_id, deleted = False
                     ).last()
-                if get_stock.quantity > 0:
+                if get_stock:
                     old_value = Decimal(get_stock.quantity) * Decimal(get_ingredient.price_per_unit)
                     new_value = Decimal(detailsSupplies.quantity) * Decimal(unit_cost)
                     total_qty = Decimal(get_stock.quantity) + Decimal(detailsSupplies.quantity)
@@ -6756,7 +6756,7 @@ class DetailsSuppliesViewSet(viewsets.ModelViewSet):
                     get_stock.save()
                     
                     unit_cost = detailsSupplies.arrival_price / detailsSupplies.quantity
-                    if get_stock.quantity > 0:
+                    if get_stock:
                         old_value = Decimal(get_stock.quantity) * Decimal(get_ingredient.price_per_unit)
                         new_value = Decimal(detailsSupplies.quantity) * Decimal(unit_cost)
 
